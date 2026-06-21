@@ -1,0 +1,35 @@
+[Unit]
+Description=Dreicount - Gruppenausgaben teilen
+After=network.target
+
+[Service]
+Type=simple
+User=dreicount
+Group=dreicount
+WorkingDirectory=/opt/dreicount
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+Environment=DB_PATH=/opt/dreicount/data/dreicount.db
+# Anmeldung: AUTH_PASSWORD und SESSION_SECRET in dieser Datei setzen:
+EnvironmentFile=-/opt/dreicount/dreicount.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+
+# --- Hardening ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dreicount/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+services:
+  dreicount:
+    build: .
+    image: dreicount:latest
+    container_name: dreicount
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+      - DB_PATH=/app/data/dreicount.db
+      # Anmeldung: beide Werte stehen in der .env-Datei neben dieser compose.
+      # Das :? sorgt dafür, dass der Start abbricht, falls sie fehlen.
+      - AUTH_PASSWORD=${AUTH_PASSWORD:?AUTH_PASSWORD fehlt - in .env setzen}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET fehlt - in .env setzen}
+    volumes:
+      - dreicount-data:/app/data
+    # nginx läuft auf dem Host -> Port NUR lokal veröffentlichen.
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  dreicount-data:
