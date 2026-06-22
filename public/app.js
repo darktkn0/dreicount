@@ -7,6 +7,7 @@ const h = (html) => { const t = document.createElement('template'); t.innerHTML 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let CURRENCY = '€';
+let activeTab = 0;
 const fmtAmt = (cents, cur = CURRENCY) =>
   (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + cur;
 const fmt = (cents) => fmtAmt(cents, CURRENCY);
@@ -288,11 +289,35 @@ function renderTricount(data, editingId = null) {
   });
   app.appendChild(statsEl);
 
+  // Tab-Leiste
+  const tabBar = h(`
+    <div class="tab-bar">
+      <button class="tab-btn${activeTab === 0 ? ' active' : ''}" data-tab="0">Ausgaben</button>
+      <button class="tab-btn${activeTab === 1 ? ' active' : ''}" data-tab="1">Ausgleich</button>
+    </div>
+  `);
+  const tab1 = h('<div class="tab-pane"></div>');
+  const tab2 = h('<div class="tab-pane"></div>');
+  tab1.hidden = activeTab !== 0;
+  tab2.hidden = activeTab !== 1;
+  tabBar.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeTab = parseInt(btn.dataset.tab);
+      tabBar.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      tab1.hidden = activeTab !== 0;
+      tab2.hidden = activeTab !== 1;
+    });
+  });
+  app.appendChild(tabBar);
+  app.appendChild(tab1);
+  app.appendChild(tab2);
+
   // Ausgabe hinzufügen oder – wenn eine Ausgabe bearbeitet wird – das Bearbeiten-Formular.
   // Bei geschlossener Abrechnung ist kein Formular sichtbar (schreibgeschützt).
   if (!closed) {
     const editing = editingId ? data.expenses.find((e) => e.id === editingId) : null;
-    app.appendChild(expenseFormCard(data, editing || null));
+    tab1.appendChild(expenseFormCard(data, editing || null));
   }
 
   // Ausgabenliste
@@ -322,7 +347,7 @@ function renderTricount(data, editingId = null) {
     }
     expCard.appendChild(row);
   }
-  app.appendChild(expCard);
+  tab1.appendChild(expCard);
 
   // Salden
   const maxAbs = Math.max(1, ...data.members.map((m) => Math.abs(data.balances[m.id] || 0)));
@@ -340,7 +365,7 @@ function renderTricount(data, editingId = null) {
       </div>
     `));
   }
-  app.appendChild(balCard);
+  tab2.appendChild(balCard);
 
   // Ausgleich (offen) mit "als bezahlt markieren"
   const setCard = h('<section class="card"><h2>Ausgleich</h2></section>');
@@ -388,7 +413,7 @@ function renderTricount(data, editingId = null) {
       setCard.appendChild(row);
     }
   }
-  app.appendChild(setCard);
+  tab2.appendChild(setCard);
 
   // Erfasste Zahlungen
   if (data.payments && data.payments.length) {
@@ -408,7 +433,7 @@ function renderTricount(data, editingId = null) {
       });
       payCard.appendChild(row);
     }
-    app.appendChild(payCard);
+    tab2.appendChild(payCard);
   }
 }
 
