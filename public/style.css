@@ -246,6 +246,20 @@ button:active { transform: translateY(1px); }
   text-align: right; margin-left: 4px; border-radius: 8px; font-family: var(--mono);
 }
 
+/* ---- Stats bar ---- */
+.stats-bar { margin-bottom: 14px; }
+.stats-row { display: flex; align-items: flex-start; gap: 20px; }
+.stats-chunk { flex: 1; min-width: 0; }
+.stats-lbl { font-size: .72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+.stats-val { font-family: var(--mono); font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stats-who { flex-shrink: 0; }
+.who-select {
+  display: block; font: inherit; font-size: .88rem;
+  color: var(--ink); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 10px; cursor: pointer; width: auto;
+}
+
 .empty { color: var(--muted); font-size: .9rem; padding: 8px 0; }
 .checks { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {

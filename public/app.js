@@ -246,6 +246,48 @@ function renderTricount(data, editingId = null) {
   });
   app.appendChild(share);
 
+  // Statistik-Leiste: Gesamtbetrag + persönlicher Anteil + Namens-Auswahl
+  const totalCents = data.expenses.reduce((s, e) => s + e.amount_cents, 0);
+  const savedMe = localStorage.getItem('me_' + data.id) || '';
+  const myShare = (mid) => data.expenses.reduce((sum, e) =>
+    e.shares.some((s) => s.member_id === mid)
+      ? sum + Math.round(e.amount_cents / e.shares.length)
+      : sum, 0);
+
+  const statsEl = h(`
+    <div class="card stats-bar">
+      <div class="stats-row">
+        <div class="stats-chunk">
+          <div class="stats-lbl">Gesamt</div>
+          <div class="stats-val">${fmt(totalCents)}</div>
+        </div>
+        <div class="stats-chunk" id="my-chunk"${savedMe ? '' : ' hidden'}>
+          <div class="stats-lbl">Mein Anteil</div>
+          <div class="stats-val" id="my-val">${savedMe ? fmt(myShare(savedMe)) : ''}</div>
+        </div>
+        <div class="stats-who">
+          <div class="stats-lbl">Du bist</div>
+          <select class="who-select" id="who-am-i">
+            <option value="">wählen…</option>
+            ${data.members.map((m) => `<option value="${esc(m.id)}"${m.id === savedMe ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+  `);
+  statsEl.querySelector('#who-am-i').addEventListener('change', (e) => {
+    const mid = e.target.value;
+    if (mid) {
+      localStorage.setItem('me_' + data.id, mid);
+      statsEl.querySelector('#my-val').textContent = fmt(myShare(mid));
+      statsEl.querySelector('#my-chunk').hidden = false;
+    } else {
+      localStorage.removeItem('me_' + data.id);
+      statsEl.querySelector('#my-chunk').hidden = true;
+    }
+  });
+  app.appendChild(statsEl);
+
   // Ausgabe hinzufügen oder – wenn eine Ausgabe bearbeitet wird – das Bearbeiten-Formular.
   // Bei geschlossener Abrechnung ist kein Formular sichtbar (schreibgeschützt).
   if (!closed) {
