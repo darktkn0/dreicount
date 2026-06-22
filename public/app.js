@@ -58,8 +58,8 @@ window.addEventListener('load', async () => {
 // ---- Dashboard: alle Abrechnungen -------------------------------------------
 async function viewDashboard() {
   app.innerHTML = '<p class="empty">Lade Übersicht…</p>';
-  let list;
-  try { list = await api('GET', '/api/tricounts'); }
+  let list, users;
+  try { [list, users] = await Promise.all([api('GET', '/api/tricounts'), api('GET', '/api/users')]); }
   catch (e) { app.innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
 
   app.innerHTML = '';
@@ -94,31 +94,68 @@ async function viewDashboard() {
   const card = h(`
     <section class="card">
       <h2>Neue Abrechnung</h2>
-      <div class="field">
-        <label for="title">Titel</label>
-        <input id="title" placeholder="z. B. Wochenende in Hamburg" maxlength="120" />
-      </div>
       <div class="row">
-        <div class="field" style="flex:2">
-          <label for="members">Teilnehmer (eine Person pro Zeile)</label>
-          <textarea id="members" placeholder="Anna&#10;Ben&#10;Carla"></textarea>
+        <div class="field" style="flex:1">
+          <label for="title">Titel</label>
+          <input id="title" placeholder="z. B. Wochenende in Hamburg" maxlength="120" />
         </div>
         <div class="field" style="flex:0 0 90px">
           <label for="currency">Währung</label>
           <input id="currency" value="€" maxlength="4" />
         </div>
       </div>
+      <div class="field">
+        <label>Teilnehmer auswählen</label>
+        <div class="checks" id="people"></div>
+        <div class="add-person">
+          <input id="newperson" placeholder="Neue Person hinzufügen…" maxlength="60" />
+          <button class="btn-small btn-ghost" id="addperson" type="button">+ Person</button>
+        </div>
+      </div>
       <button class="btn-primary" id="create">Abrechnung erstellen</button>
       <div class="error" id="err"></div>
     </section>
   `);
+
+  const people = card.querySelector('#people');
+  const renderEmpty = () => {
+    if (!people.querySelector('.chip')) {
+      people.innerHTML = '<span class="empty" style="padding:0">Noch keine Personen – füge unten welche hinzu.</span>';
+    }
+  };
+  // Fügt eine Personen-Auswahl hinzu (oder selektiert eine bestehende).
+  const addChip = (user, selected) => {
+    let cb = people.querySelector(`.chip input[value="${CSS.escape(user.id)}"]`);
+    if (cb) { cb.checked = selected; cb.closest('.chip').classList.toggle('on', selected); return; }
+    const empty = people.querySelector('.empty'); if (empty) empty.remove();
+    const chip = h(`<label class="chip${selected ? ' on' : ''}"><input type="checkbox" value="${esc(user.id)}"${selected ? ' checked' : ''} /> ${esc(user.name)}</label>`);
+    chip.querySelector('input').addEventListener('change', (e) => chip.classList.toggle('on', e.target.checked));
+    people.appendChild(chip);
+  };
+  for (const u of users) addChip(u, false);
+  renderEmpty();
+
+  const newInput = card.querySelector('#newperson');
+  const addPerson = async () => {
+    const name = newInput.value.trim();
+    if (!name) return;
+    const err = card.querySelector('#err'); err.textContent = '';
+    try {
+      const user = await api('POST', '/api/users', { name });
+      addChip(user, true);
+      newInput.value = ''; newInput.focus();
+    } catch (e) { err.textContent = e.message; }
+  };
+  card.querySelector('#addperson').addEventListener('click', addPerson);
+  newInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addPerson(); } });
+
   card.querySelector('#create').addEventListener('click', async () => {
     const title = card.querySelector('#title').value.trim();
     const currency = card.querySelector('#currency').value.trim() || '€';
-    const members = card.querySelector('#members').value.split('\n').map((s) => s.trim()).filter(Boolean);
+    const user_ids = [...people.querySelectorAll('.chip input:checked')].map((c) => c.value);
     const err = card.querySelector('#err'); err.textContent = '';
     try {
-      const { id } = await api('POST', '/api/tricounts', { title, currency, members });
+      const { id } = await api('POST', '/api/tricounts', { title, currency, user_ids });
       location.hash = '/t/' + id;
     } catch (e) { err.textContent = e.message; }
   });
@@ -312,14 +349,35 @@ function renderTricount(data, editingId = null) {
 async function viewAdmin() {
   if (ME.role !== 'admin') { toast('Nur für Administratoren'); location.hash = '/'; return; }
   app.innerHTML = '<p class="empty">Lade Verwaltung…</p>';
-  let list;
-  try { list = await api('GET', '/api/tricounts'); }
+  let list, users;
+  try { [list, users] = await Promise.all([api('GET', '/api/tricounts'), api('GET', '/api/users')]); }
   catch (e) { app.innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
 
   app.innerHTML = '';
   app.appendChild(h('<a class="back" href="#/">← Übersicht</a>'));
   app.appendChild(h('<h1 class="hero">Verwaltung</h1>'));
-  app.appendChild(h('<p class="lead">Alle Abrechnungen umbenennen, öffnen oder löschen.</p>'));
+  app.appendChild(h('<p class="lead">Abrechnungen und Personen verwalten.</p>'));
+
+  // Personen-Pool
+  const pCard = h('<section class="card"><h2>Personen</h2></section>');
+  if (!users.length) pCard.appendChild(h('<p class="empty">Noch keine Personen gespeichert.</p>'));
+  else for (const u of users) {
+    const row = h(`
+      <div class="admin-row">
+        <div class="tc-body"><div class="tc-title">${esc(u.name)}</div></div>
+        <div class="admin-actions">
+          <button class="btn-small btn-del btn-del-user">Löschen</button>
+        </div>
+      </div>
+    `);
+    row.querySelector('.btn-del-user').addEventListener('click', async () => {
+      if (!confirm(`Person „${u.name}" aus dem Pool entfernen? Bestehende Abrechnungen bleiben unverändert.`)) return;
+      await api('DELETE', `/api/users/${u.id}`);
+      toast('Person gelöscht'); viewAdmin();
+    });
+    pCard.appendChild(row);
+  }
+  app.appendChild(pCard);
 
   const card = h('<section class="card"><h2>Alle Abrechnungen</h2></section>');
   if (!list.length) card.appendChild(h('<p class="empty">Keine Abrechnungen vorhanden.</p>'));

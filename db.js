@@ -27,6 +27,15 @@ CREATE TABLE IF NOT EXISTS members (
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Wiederverwendbarer Personen-Pool: einmal anlegen, in beliebig vielen
+-- Abrechnungen auswählen. Mitglieder werden weiterhin als Namenskopie je
+-- Abrechnung gespeichert; dieser Pool dient nur der Auswahl beim Anlegen.
+CREATE TABLE IF NOT EXISTS users (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS expenses (
   id           TEXT PRIMARY KEY,
   tricount_id  TEXT NOT NULL REFERENCES tricounts(id) ON DELETE CASCADE,

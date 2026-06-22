@@ -243,6 +243,11 @@ button:active { transform: translateY(1px); }
 .chip input { width: auto; margin: 0; }
 .chip.on { border-color: var(--primary); background: rgba(19,169,138,.16); color: var(--primary-d); }
 
+/* Schnell-Hinzufügen einer Person im Erstellen-Formular */
+.add-person { display: flex; gap: 8px; margin-top: 10px; }
+.add-person input { flex: 1; }
+.add-person button { flex: 0 0 auto; white-space: nowrap; }
+
 .error { color: var(--negative); font-size: .85rem; margin-top: 10px; min-height: 1.2em; }
 .toast {
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);

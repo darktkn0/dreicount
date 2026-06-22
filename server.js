@@ -277,13 +277,54 @@ function loadTricount(id) {
 
 // ---- API ---------------------------------------------------------------------
 
+// ---- Personen (wiederverwendbarer Teilnehmer-Pool) --------------------------
+
+// Alle gespeicherten Personen
+app.get('/api/users', (req, res) => {
+  res.json(db.prepare('SELECT id, name FROM users ORDER BY name COLLATE NOCASE').all());
+});
+
+// Person anlegen (oder vorhandene zurückgeben, falls Name bereits existiert)
+app.post('/api/users', (req, res) => {
+  const name = clean(req.body?.name, 60);
+  if (!name) return res.status(400).json({ error: 'Name fehlt.' });
+  const existing = db.prepare('SELECT id, name FROM users WHERE name = ? COLLATE NOCASE').get(name);
+  if (existing) return res.json(existing);
+  const id = genId(8);
+  db.prepare('INSERT INTO users (id, name) VALUES (?, ?)').run(id, name);
+  res.status(201).json({ id, name });
+});
+
+// Person aus dem Pool entfernen (bestehende Abrechnungen bleiben unberührt)
+app.delete('/api/users/:id', requireAdmin, (req, res) => {
+  const r = db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+  if (!r.changes) return res.status(404).json({ error: 'Person nicht gefunden.' });
+  res.json({ ok: true });
+});
+
 // Neue Abrechnung anlegen
 app.post('/api/tricounts', (req, res) => {
   const title = clean(req.body?.title, 120);
   const currency = clean(req.body?.currency, 4) || '€';
-  const names = Array.isArray(req.body?.members)
+
+  // Teilnehmernamen aus zwei Quellen: ausgewählte Personen + frei eingegebene Namen.
+  const typedNames = Array.isArray(req.body?.members)
     ? req.body.members.map((n) => clean(n, 60)).filter(Boolean)
     : [];
+  const userIds = Array.isArray(req.body?.user_ids)
+    ? req.body.user_ids.map((u) => clean(u, 40)).filter(Boolean)
+    : [];
+  const selectedNames = userIds.length
+    ? db.prepare(`SELECT name FROM users WHERE id IN (${userIds.map(() => '?').join(',')})`).all(...userIds).map((u) => u.name)
+    : [];
+
+  // Zusammenführen, Duplikate (ohne Beachtung der Groß-/Kleinschreibung) entfernen.
+  const names = [];
+  const seen = new Set();
+  for (const n of [...selectedNames, ...typedNames]) {
+    const key = n.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); names.push(n); }
+  }
 
   if (!title) return res.status(400).json({ error: 'Titel fehlt.' });
   if (names.length < 2) return res.status(400).json({ error: 'Mindestens zwei Teilnehmer angeben.' });
@@ -292,10 +333,15 @@ app.post('/api/tricounts', (req, res) => {
   const id = genId(16);
   const insertTc = db.prepare('INSERT INTO tricounts (id, title, currency) VALUES (?, ?, ?)');
   const insertMember = db.prepare('INSERT INTO members (id, tricount_id, name) VALUES (?, ?, ?)');
+  // Neu eingegebene Namen für die spätere Wiederverwendung in den Pool übernehmen.
+  const upsertUser = db.prepare('INSERT OR IGNORE INTO users (id, name) VALUES (?, ?)');
 
   db.transaction(() => {
     insertTc.run(id, title, currency);
-    for (const name of names) insertMember.run(genId(8), id, name);
+    for (const name of names) {
+      insertMember.run(genId(8), id, name);
+      upsertUser.run(genId(8), name);
+    }
   })();
 
   res.status(201).json({ id });
