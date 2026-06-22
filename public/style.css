@@ -98,11 +98,11 @@ body {
 .btn-del:hover { background: rgba(248,118,92,.28); }
 
 /* "bezahlt"-Buttons im Ausgleich */
-.settle .btn-pay { background: var(--primary); color: #fff; margin-left: 12px; }
+.settle .btn-pay { background: var(--primary); color: #fff; margin-left: 4px; border-radius: 99px; padding: 7px 14px; font-size: .8rem; flex-shrink: 0; }
 .settle .btn-pay:hover { background: var(--primary-d); }
 .settle.done { color: var(--muted); }
 .settle.done .sum { color: var(--muted); }
-.settle .btn-undo { background: transparent; color: var(--muted); margin-left: 12px; }
+.settle .btn-undo { background: transparent; color: var(--muted); margin-left: auto; font-size: .8rem; border-radius: 99px; }
 .settle .btn-undo:hover { color: var(--negative); }
 
 /* ---- Layout ---- */
@@ -219,28 +219,31 @@ button:active { transform: translateY(1px); }
 .bal { padding: 12px 0; border-top: 1px solid var(--line); }
 .bal:first-child { border-top: none; }
 .bal-head { display: flex; justify-content: space-between; align-items: baseline; }
-.bal-name { font-weight: 500; }
+.bal-name { font-weight: 600; }
 .bal-amt { font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
 .bal-amt.pos { color: var(--positive); }
 .bal-amt.neg { color: var(--negative); }
-.bar { height: 6px; border-radius: 99px; background: var(--line); margin-top: 7px; overflow: hidden; position: relative; }
+.bar { height: 5px; border-radius: 99px; background: var(--line); margin-top: 8px; overflow: hidden; position: relative; }
 .bar > span { position: absolute; top: 0; bottom: 0; left: 50%; }
 .bar > span.pos { background: var(--positive); }
 .bar > span.neg { background: var(--negative); transform: translateX(-100%); }
 
 /* ---- Settlements ---- */
+.settle-info {
+  font-size: .82rem; color: var(--muted); margin: 0 0 14px; line-height: 1.5;
+}
 .settle {
-  display: flex; align-items: center; gap: 10px;
-  padding: 11px 0; border-top: 1px solid var(--line);
-  font-family: var(--mono); font-size: .9rem;
+  display: flex; align-items: center; gap: 6px;
+  padding: 13px 0; border-top: 1px solid var(--line);
+  font-size: .9rem;
 }
 .settle:first-child { border-top: none; }
-.settle .arrow { color: var(--primary); font-weight: 600; }
-.settle .who { font-family: var(--sans); font-weight: 500; }
-.settle .sum { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.settle .arrow { color: var(--primary); font-weight: 700; font-size: .75rem; flex-shrink: 0; }
+.settle .who { font-family: var(--sans); font-weight: 600; font-size: .88rem; }
+.settle .sum { margin-left: auto; font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--muted); font-size: .82rem; flex-shrink: 0; }
 .settle .pay-amt {
-  flex: 0 0 88px; width: 88px; padding: 7px 10px; font-size: .85rem;
-  text-align: right; margin-left: 12px;
+  flex: 0 0 76px; width: 76px; padding: 6px 8px; font-size: .84rem;
+  text-align: right; margin-left: 4px; border-radius: 8px; font-family: var(--mono);
 }
 
 .empty { color: var(--muted); font-size: .9rem; padding: 8px 0; }
