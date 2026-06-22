@@ -324,7 +324,7 @@ function renderTricount(data, editingId = null) {
       setCard.appendChild(closeBtn);
     }
   } else {
-    setCard.appendChild(h('<p class="empty">Offene Zahlungen – Betrag anpassen für Teilzahlungen und „bezahlt" tippen:</p>'));
+    setCard.appendChild(h('<p class="settle-info">Offene Zahlungen – Betrag anpassen für Teilzahlungen und „bezahlt" tippen:</p>'));
     for (const s of data.settlements) {
       const row = h(`
         <div class="settle">
