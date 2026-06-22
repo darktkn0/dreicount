@@ -1,0 +1,2 @@
+# Shell-Skripte müssen LF behalten, sonst bricht bash auf der VPS mit \r-Fehlern.
+*.sh text eol=lf
