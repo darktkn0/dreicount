@@ -15,9 +15,6 @@ SQLite-Datei als Datenbank.
   Abrechnung** ist der Schlüssel zu genau dieser Abrechnung – nur mit den
   Beteiligten teilen.
 
-> **Auf dem IONOS-VPS aufsetzen?** → Schritt-für-Schritt in
-> [`INSTALL-IONOS.md`](INSTALL-IONOS.md) (Docker + Host-nginx + IONOS-SSL + Login).
-> Reine Docker-Hinweise: [`DOCKER.md`](DOCKER.md).
 
 ## Konfiguration (Umgebungsvariablen)
 
