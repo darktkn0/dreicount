@@ -455,10 +455,10 @@ function renderTricount(data, editingId = null) {
   // Statistik-Leiste
   const totalCents = data.expenses.reduce((s, e) => s + e.amount_cents, 0);
   const savedMe = localStorage.getItem('me_' + data.id) || '';
-  const myShare = (mid) => data.expenses.reduce((sum, e) =>
-    e.shares.some((s) => s.member_id === mid)
-      ? sum + Math.round(e.amount_cents / e.shares.length)
-      : sum, 0);
+  const myShare = (mid) => data.expenses.reduce((sum, e) => {
+    const s = e.shares.find((sh) => sh.member_id === mid);
+    return s ? sum + s.share_cents : sum;
+  }, 0);
 
   const statsEl = h(`
     <div class="card stats-bar">
