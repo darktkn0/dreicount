@@ -61,6 +61,17 @@ body {
 .admin-link + .logout { margin-left: 16px; }
 .admin-link:hover { text-decoration: underline; }
 
+/* "geschlossen"-Badge */
+.badge-closed {
+  display: inline-block; vertical-align: middle;
+  font-family: var(--sans); font-weight: 600; font-size: .62em;
+  text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 99px;
+  padding: 3px 9px; margin-left: 10px;
+}
+.tc-row.closed .tc-title { color: var(--muted); }
+
 /* Zurück-Link */
 .back { display: inline-block; color: var(--muted); text-decoration: none; font-size: .9rem; font-weight: 500; margin: 4px 0 6px; }
 .back:hover { color: var(--primary-d); }
@@ -193,8 +204,16 @@ button:active { transform: translateY(1px); }
 .exp-desc { font-weight: 500; }
 .exp-meta { font-size: .8rem; color: var(--muted); }
 .exp-amt { font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+.exp-edit { color: var(--muted); background: none; padding: 4px 8px; font-size: 1rem; line-height: 1; }
+.exp-edit:hover { color: var(--primary-d); }
 .exp-del { color: var(--muted); background: none; padding: 4px 8px; font-size: 1.1rem; line-height: 1; }
 .exp-del:hover { color: var(--negative); }
+.exp.editing { background: rgba(19,169,138,.08); border-radius: 8px; }
+
+/* Aktionen unter dem Ausgabenformular (Speichern / Abbrechen) */
+.form-actions { display: flex; gap: 10px; align-items: center; }
+.form-actions .btn-primary { width: auto; flex: 1; }
+.form-actions .btn-ghost { flex: 0 0 auto; }
 
 /* ---- Balances ---- */
 .bal { padding: 12px 0; border-top: 1px solid var(--line); }
@@ -219,6 +238,10 @@ button:active { transform: translateY(1px); }
 .settle .arrow { color: var(--primary); font-weight: 600; }
 .settle .who { font-family: var(--sans); font-weight: 500; }
 .settle .sum { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.settle .pay-amt {
+  flex: 0 0 88px; width: 88px; padding: 7px 10px; font-size: .85rem;
+  text-align: right; margin-left: 12px;
+}
 
 .empty { color: var(--muted); font-size: .9rem; padding: 8px 0; }
 .checks { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -230,6 +253,11 @@ button:active { transform: translateY(1px); }
 }
 .chip input { width: auto; margin: 0; }
 .chip.on { border-color: var(--primary); background: rgba(19,169,138,.16); color: var(--primary-d); }
+
+/* Schnell-Hinzufügen einer Person im Erstellen-Formular */
+.add-person { display: flex; gap: 8px; margin-top: 10px; }
+.add-person input { flex: 1; }
+.add-person button { flex: 0 0 auto; white-space: nowrap; }
 
 .error { color: var(--negative); font-size: .85rem; margin-top: 10px; min-height: 1.2em; }
 .toast {
