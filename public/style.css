@@ -61,6 +61,17 @@ body {
 .admin-link + .logout { margin-left: 16px; }
 .admin-link:hover { text-decoration: underline; }
 
+/* "geschlossen"-Badge */
+.badge-closed {
+  display: inline-block; vertical-align: middle;
+  font-family: var(--sans); font-weight: 600; font-size: .62em;
+  text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 99px;
+  padding: 3px 9px; margin-left: 10px;
+}
+.tc-row.closed .tc-title { color: var(--muted); }
+
 /* Zurück-Link */
 .back { display: inline-block; color: var(--muted); text-decoration: none; font-size: .9rem; font-weight: 500; margin: 4px 0 6px; }
 .back:hover { color: var(--primary-d); }

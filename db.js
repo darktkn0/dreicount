@@ -69,4 +69,10 @@ CREATE INDEX IF NOT EXISTS idx_shares_member     ON expense_shares(member_id);
 CREATE INDEX IF NOT EXISTS idx_payments_tricount ON payments(tricount_id);
 `);
 
+// Migration: Spalte closed_at ergänzen (NULL = offen, Zeitstempel = abgeschlossen).
+const tricountCols = db.prepare('PRAGMA table_info(tricounts)').all().map((c) => c.name);
+if (!tricountCols.includes('closed_at')) {
+  db.exec('ALTER TABLE tricounts ADD COLUMN closed_at TEXT');
+}
+
 export default db;

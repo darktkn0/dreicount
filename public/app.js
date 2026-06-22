@@ -76,9 +76,9 @@ async function viewDashboard() {
   } else {
     for (const tc of list) {
       const row = h(`
-        <a class="tc-row" href="#/t/${esc(tc.id)}">
+        <a class="tc-row${tc.closed_at ? ' closed' : ''}" href="#/t/${esc(tc.id)}">
           <div class="tc-body">
-            <div class="tc-title">${esc(tc.title)}</div>
+            <div class="tc-title">${esc(tc.title)}${tc.closed_at ? ' <span class="badge-closed">geschlossen</span>' : ''}</div>
             <div class="tc-meta">${tc.member_count} Personen · ${tc.expense_count} Ausgaben</div>
           </div>
           <div class="tc-sum">${fmtAmt(tc.total_cents, tc.currency)}</div>
@@ -226,11 +226,12 @@ function expenseFormCard(data, expense) {
 
 function renderTricount(data, editingId = null) {
   CURRENCY = data.currency || '€';
+  const closed = !!data.closed_at;
   const name = (mid) => { const m = data.members.find((x) => x.id === mid); return m ? m.name : '?'; };
   app.innerHTML = '';
 
   app.appendChild(h('<a class="back" href="#/">← Übersicht</a>'));
-  app.appendChild(h(`<h1 class="hero">${esc(data.title)}</h1>`));
+  app.appendChild(h(`<h1 class="hero">${esc(data.title)}${closed ? ' <span class="badge-closed">geschlossen</span>' : ''}</h1>`));
 
   const shareUrl = location.origin + '/#/t/' + data.id;
   const share = h(`
@@ -245,9 +246,12 @@ function renderTricount(data, editingId = null) {
   });
   app.appendChild(share);
 
-  // Ausgabe hinzufügen oder – wenn eine Ausgabe bearbeitet wird – das Bearbeiten-Formular
-  const editing = editingId ? data.expenses.find((e) => e.id === editingId) : null;
-  app.appendChild(expenseFormCard(data, editing || null));
+  // Ausgabe hinzufügen oder – wenn eine Ausgabe bearbeitet wird – das Bearbeiten-Formular.
+  // Bei geschlossener Abrechnung ist kein Formular sichtbar (schreibgeschützt).
+  if (!closed) {
+    const editing = editingId ? data.expenses.find((e) => e.id === editingId) : null;
+    app.appendChild(expenseFormCard(data, editing || null));
+  }
 
   // Ausgabenliste
   const expCard = h('<section class="card"><h2>Ausgaben</h2></section>');
@@ -261,18 +265,19 @@ function renderTricount(data, editingId = null) {
           <div class="exp-meta">${esc(name(e.paid_by))} · ${esc(e.spent_on)} · ${e.shares.length} Personen</div>
         </div>
         <div class="exp-amt">${fmt(e.amount_cents)}</div>
-        <button class="exp-edit" title="Bearbeiten">✎</button>
-        <button class="exp-del" title="Löschen">×</button>
+        ${closed ? '' : '<button class="exp-edit" title="Bearbeiten">✎</button><button class="exp-del" title="Löschen">×</button>'}
       </div>
     `);
-    row.querySelector('.exp-edit').addEventListener('click', () => {
-      renderTricount(data, isEditing ? null : e.id);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    row.querySelector('.exp-del').addEventListener('click', async () => {
-      if (!confirm('Diese Ausgabe löschen?')) return;
-      renderTricount(await api('DELETE', `/api/tricounts/${data.id}/expenses/${e.id}`)); toast('Ausgabe gelöscht');
-    });
+    if (!closed) {
+      row.querySelector('.exp-edit').addEventListener('click', () => {
+        renderTricount(data, isEditing ? null : e.id);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      row.querySelector('.exp-del').addEventListener('click', async () => {
+        if (!confirm('Diese Ausgabe löschen?')) return;
+        renderTricount(await api('DELETE', `/api/tricounts/${data.id}/expenses/${e.id}`)); toast('Ausgabe gelöscht');
+      });
+    }
     expCard.appendChild(row);
   }
   app.appendChild(expCard);
@@ -297,8 +302,28 @@ function renderTricount(data, editingId = null) {
 
   // Ausgleich (offen) mit "als bezahlt markieren"
   const setCard = h('<section class="card"><h2>Ausgleich</h2></section>');
-  if (!data.settlements.length) setCard.appendChild(h('<p class="empty">Alles ausgeglichen. Keine Zahlungen offen.</p>'));
-  else {
+  if (closed) {
+    // Geschlossen: Status anzeigen und Wieder-öffnen anbieten.
+    setCard.appendChild(h(`<p class="empty">Diese Abrechnung ist abgeschlossen (${esc(data.closed_at)}). Änderungen sind gesperrt.</p>`));
+    const reopen = h('<button class="btn-ghost" id="reopen" style="padding:10px 14px">Wieder öffnen</button>');
+    reopen.addEventListener('click', async () => {
+      try { renderTricount(await api('POST', `/api/tricounts/${data.id}/reopen`)); toast('Wieder geöffnet'); }
+      catch (e) { toast(e.message); }
+    });
+    setCard.appendChild(reopen);
+  } else if (!data.settlements.length) {
+    // Alles ausgeglichen: Abschließen anbieten (sofern es überhaupt etwas gibt).
+    setCard.appendChild(h('<p class="empty">Alles ausgeglichen. Keine Zahlungen offen.</p>'));
+    if (data.expenses.length) {
+      const closeBtn = h('<button class="btn-primary" id="closebtn">Abrechnung abschließen</button>');
+      closeBtn.addEventListener('click', async () => {
+        if (!confirm('Abrechnung abschließen? Danach sind keine Änderungen mehr möglich, bis sie wieder geöffnet wird.')) return;
+        try { renderTricount(await api('POST', `/api/tricounts/${data.id}/close`)); toast('Abrechnung geschlossen'); }
+        catch (e) { toast(e.message); }
+      });
+      setCard.appendChild(closeBtn);
+    }
+  } else {
     setCard.appendChild(h('<p class="empty">Offene Zahlungen – Betrag anpassen für Teilzahlungen und „bezahlt" tippen:</p>'));
     for (const s of data.settlements) {
       const row = h(`
@@ -332,10 +357,10 @@ function renderTricount(data, editingId = null) {
           <span class="who">${esc(name(p.from_member))}</span><span class="arrow">→</span>
           <span class="who">${esc(name(p.to_member))}</span>
           <span class="sum">${fmt(p.amount_cents)}</span>
-          <button class="btn-small btn-undo" title="Rückgängig">rückgängig</button>
+          ${closed ? '' : '<button class="btn-small btn-undo" title="Rückgängig">rückgängig</button>'}
         </div>
       `);
-      row.querySelector('.btn-undo').addEventListener('click', async () => {
+      if (!closed) row.querySelector('.btn-undo').addEventListener('click', async () => {
         renderTricount(await api('DELETE', `/api/tricounts/${data.id}/payments/${p.id}`));
         toast('Zahlung zurückgenommen');
       });

@@ -239,7 +239,7 @@ function settle(balances) {
 }
 
 function loadTricount(id) {
-  const tc = db.prepare('SELECT id, title, currency, created_at FROM tricounts WHERE id = ?').get(id);
+  const tc = db.prepare('SELECT id, title, currency, created_at, closed_at FROM tricounts WHERE id = ?').get(id);
   if (!tc) return null;
   const members = db.prepare('SELECT id, name FROM members WHERE tricount_id = ? ORDER BY created_at').all(id);
   const expenses = db.prepare(
@@ -273,6 +273,15 @@ function loadTricount(id) {
   }
 
   return { ...tc, members, expenses, payments, balances, settlements: settle(balances) };
+}
+
+// Liefert die Abrechnung (id + closed_at) oder null – für Existenz-/Schreibschutz-Prüfung.
+const findTricount = (id) => db.prepare('SELECT id, closed_at FROM tricounts WHERE id = ?').get(id);
+// Antwortet mit einem Fehler, falls die Abrechnung fehlt oder geschlossen ist; sonst null.
+function blockIfMissingOrClosed(tc, res) {
+  if (!tc) { res.status(404).json({ error: 'Abrechnung nicht gefunden.' }); return true; }
+  if (tc.closed_at) { res.status(409).json({ error: 'Abrechnung ist geschlossen. Bitte zuerst wieder öffnen.' }); return true; }
+  return false;
 }
 
 // ---- API ---------------------------------------------------------------------
@@ -350,7 +359,7 @@ app.post('/api/tricounts', (req, res) => {
 // Alle Abrechnungen auflisten (Übersicht nach dem Login)
 app.get('/api/tricounts', (req, res) => {
   const rows = db.prepare(`
-    SELECT t.id, t.title, t.currency, t.created_at,
+    SELECT t.id, t.title, t.currency, t.created_at, t.closed_at,
            (SELECT COUNT(*) FROM members  m WHERE m.tricount_id  = t.id) AS member_count,
            (SELECT COUNT(*) FROM expenses e WHERE e.tricount_id  = t.id) AS expense_count,
            (SELECT COALESCE(SUM(amount_cents),0) FROM expenses e WHERE e.tricount_id = t.id) AS total_cents
@@ -410,8 +419,8 @@ function parseExpenseInput(body, memberIds) {
 
 // Ausgabe hinzufügen
 app.post('/api/tricounts/:id/expenses', (req, res) => {
-  const tc = db.prepare('SELECT id FROM tricounts WHERE id = ?').get(req.params.id);
-  if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+  const tc = findTricount(req.params.id);
+  if (blockIfMissingOrClosed(tc, res)) return;
 
   const memberIds = db.prepare('SELECT id FROM members WHERE tricount_id = ?').all(tc.id).map((m) => m.id);
   const parsed = parseExpenseInput(req.body, memberIds);
@@ -434,8 +443,8 @@ app.post('/api/tricounts/:id/expenses', (req, res) => {
 
 // Ausgabe bearbeiten
 app.put('/api/tricounts/:id/expenses/:expenseId', (req, res) => {
-  const tc = db.prepare('SELECT id FROM tricounts WHERE id = ?').get(req.params.id);
-  if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+  const tc = findTricount(req.params.id);
+  if (blockIfMissingOrClosed(tc, res)) return;
 
   const existing = db.prepare('SELECT id FROM expenses WHERE id = ? AND tricount_id = ?')
     .get(req.params.expenseId, tc.id);
@@ -463,6 +472,8 @@ app.put('/api/tricounts/:id/expenses/:expenseId', (req, res) => {
 
 // Ausgabe löschen
 app.delete('/api/tricounts/:id/expenses/:expenseId', (req, res) => {
+  const tc = findTricount(req.params.id);
+  if (blockIfMissingOrClosed(tc, res)) return;
   const row = db.prepare('SELECT id FROM expenses WHERE id = ? AND tricount_id = ?')
     .get(req.params.expenseId, req.params.id);
   if (!row) return res.status(404).json({ error: 'Ausgabe nicht gefunden.' });
@@ -472,8 +483,8 @@ app.delete('/api/tricounts/:id/expenses/:expenseId', (req, res) => {
 
 // Zahlung erfassen ("als bezahlt markieren": from zahlt amount an to)
 app.post('/api/tricounts/:id/payments', (req, res) => {
-  const tc = db.prepare('SELECT id FROM tricounts WHERE id = ?').get(req.params.id);
-  if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+  const tc = findTricount(req.params.id);
+  if (blockIfMissingOrClosed(tc, res)) return;
 
   const memberSet = new Set(db.prepare('SELECT id FROM members WHERE tricount_id = ?').all(tc.id).map((m) => m.id));
   const from = clean(req.body?.from, 40);
@@ -492,10 +503,30 @@ app.post('/api/tricounts/:id/payments', (req, res) => {
 
 // Zahlung rückgängig machen
 app.delete('/api/tricounts/:id/payments/:paymentId', (req, res) => {
+  const tc = findTricount(req.params.id);
+  if (blockIfMissingOrClosed(tc, res)) return;
   const row = db.prepare('SELECT id FROM payments WHERE id = ? AND tricount_id = ?')
     .get(req.params.paymentId, req.params.id);
   if (!row) return res.status(404).json({ error: 'Zahlung nicht gefunden.' });
   db.prepare('DELETE FROM payments WHERE id = ?').run(row.id);
+  res.json(loadTricount(req.params.id));
+});
+
+// Abrechnung abschließen (nur wenn alles ausgeglichen ist)
+app.post('/api/tricounts/:id/close', (req, res) => {
+  const data = loadTricount(req.params.id);
+  if (!data) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+  if (data.closed_at) return res.status(409).json({ error: 'Abrechnung ist bereits geschlossen.' });
+  if (data.settlements.length) return res.status(409).json({ error: 'Es sind noch Zahlungen offen.' });
+  db.prepare("UPDATE tricounts SET closed_at = datetime('now') WHERE id = ?").run(req.params.id);
+  res.json(loadTricount(req.params.id));
+});
+
+// Abrechnung wieder öffnen
+app.post('/api/tricounts/:id/reopen', (req, res) => {
+  const tc = findTricount(req.params.id);
+  if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+  db.prepare('UPDATE tricounts SET closed_at = NULL WHERE id = ?').run(req.params.id);
   res.json(loadTricount(req.params.id));
 });
 
