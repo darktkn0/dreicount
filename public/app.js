@@ -3,14 +3,214 @@
 const app = document.getElementById('app');
 
 // ---- Helpers ----------------------------------------------------------------
-const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+const h = (html) => { const tpl = document.createElement('template'); tpl.innerHTML = html.trim(); return tpl.content.firstElementChild; };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let CURRENCY = '€';
 let activeTab = 0;
+
+// ---- i18n -------------------------------------------------------------------
+const i18n = {
+  de: {
+    loading_overview: 'Lade Übersicht…',
+    loading_bill: 'Lade Abrechnung…',
+    loading_admin: 'Lade Verwaltung…',
+    err_not_auth: 'Nicht angemeldet.',
+    err_generic: 'Es ist ein Fehler aufgetreten.',
+    your_bills: 'Deine Abrechnungen',
+    your_bills_lead: 'Wähle eine Abrechnung oder leg eine neue an.',
+    all_bills: 'Alle Abrechnungen',
+    no_bills: 'Noch keine Abrechnung vorhanden. Leg unten die erste an.',
+    open_link: 'Öffnen →',
+    new_bill: 'Neue Abrechnung',
+    field_title: 'Titel',
+    title_ph: 'z. B. Wochenende in Hamburg',
+    field_currency: 'Währung',
+    select_members: 'Teilnehmer auswählen',
+    no_people_chip: 'Noch keine Personen – füge unten welche hinzu.',
+    add_person_ph: 'Neue Person hinzufügen…',
+    add_person_btn: '+ Person',
+    create_bill_btn: 'Abrechnung erstellen',
+    edit_expense_h: 'Ausgabe bearbeiten',
+    add_expense_h: 'Ausgabe hinzufügen',
+    what_for: 'Wofür?',
+    what_for_ph: 'z. B. Einkauf, Restaurant, Tickets',
+    field_amount: 'Betrag',
+    amount_ph: '0,00',
+    field_date: 'Datum',
+    paid_by: 'Bezahlt von',
+    split_among: 'Aufteilen auf',
+    save_changes: 'Änderungen speichern',
+    add_expense_btn: 'Ausgabe eintragen',
+    cancel: 'Abbrechen',
+    expense_updated: 'Ausgabe aktualisiert',
+    expense_saved: 'Ausgabe gespeichert',
+    back: '← Übersicht',
+    copy_link: 'Link kopieren',
+    link_copied: 'Link kopiert',
+    copy_failed: 'Kopieren nicht möglich',
+    stat_total: 'Gesamt',
+    stat_my_share: 'Mein Anteil',
+    i_am: 'Du bist',
+    select_ph: 'wählen…',
+    tab_expenses: 'Ausgaben',
+    tab_settlement: 'Ausgleich',
+    section_expenses: 'Ausgaben',
+    no_expenses: 'Noch keine Ausgaben.',
+    edit_tooltip: 'Bearbeiten',
+    delete_tooltip: 'Löschen',
+    expense_deleted: 'Ausgabe gelöscht',
+    delete_expense_confirm: 'Diese Ausgabe löschen?',
+    exp_meta: (payer, date, count) => `${payer} · ${date} · ${count} Personen`,
+    section_balances: 'Salden',
+    receives: 'bekommt',
+    owes: 'schuldet',
+    balanced: 'ausgeglichen',
+    section_settlement: 'Ausgleich',
+    bill_closed_info: (d) => `Diese Abrechnung ist abgeschlossen (${d}). Änderungen sind gesperrt.`,
+    reopen: 'Wieder öffnen',
+    reopened: 'Wieder geöffnet',
+    all_settled: 'Alles ausgeglichen. Keine Zahlungen offen.',
+    close_bill: 'Abrechnung abschließen',
+    close_confirm: 'Abrechnung abschließen? Danach sind keine Änderungen mehr möglich, bis sie wieder geöffnet wird.',
+    bill_closed_toast: 'Abrechnung geschlossen',
+    open_payments_info: 'Offene Zahlungen – Betrag anpassen für Teilzahlungen und „bezahlt" tippen:',
+    paid_btn: 'bezahlt',
+    payment_recorded: 'Zahlung erfasst',
+    section_paid: 'Bezahlt',
+    undo_btn: 'rückgängig',
+    undo_tooltip: 'Rückgängig',
+    payment_undone: 'Zahlung zurückgenommen',
+    not_found: 'Nicht gefunden',
+    to_overview: 'Zur Übersicht',
+    admin_only: 'Nur für Administratoren',
+    section_admin: 'Verwaltung',
+    admin_lead: 'Abrechnungen und Personen verwalten.',
+    section_people: 'Personen',
+    no_people_saved: 'Noch keine Personen gespeichert.',
+    delete_btn: 'Löschen',
+    delete_person_confirm: (name) => `Person „${name}" aus dem Pool entfernen? Bestehende Abrechnungen bleiben unverändert.`,
+    person_deleted: 'Person gelöscht',
+    no_bills_admin: 'Keine Abrechnungen vorhanden.',
+    open_btn: 'Öffnen',
+    rename_btn: 'Umbenennen',
+    rename_prompt_label: 'Neuer Titel:',
+    renamed: 'Umbenannt',
+    delete_bill_confirm: (title) => `Abrechnung „${title}" mit allen Ausgaben unwiderruflich löschen?`,
+    deleted: 'Gelöscht',
+    badge_closed: 'geschlossen',
+    tc_meta: (members, expenses) => `${members} Personen · ${expenses} Ausgaben`,
+    brand_tag: 'Ausgaben fair teilen',
+    logout: 'Abmelden',
+    footer: 'Selbst gehostet · keine Konten, kein Tracking',
+  },
+  en: {
+    loading_overview: 'Loading overview…',
+    loading_bill: 'Loading bill…',
+    loading_admin: 'Loading admin…',
+    err_not_auth: 'Not authenticated.',
+    err_generic: 'An error occurred.',
+    your_bills: 'Your Bills',
+    your_bills_lead: 'Select a bill or create a new one.',
+    all_bills: 'All Bills',
+    no_bills: 'No bills yet. Create your first one below.',
+    open_link: 'Open →',
+    new_bill: 'New Bill',
+    field_title: 'Title',
+    title_ph: 'e.g. Weekend trip',
+    field_currency: 'Currency',
+    select_members: 'Select participants',
+    no_people_chip: 'No people yet – add some below.',
+    add_person_ph: 'Add new person…',
+    add_person_btn: '+ Person',
+    create_bill_btn: 'Create bill',
+    edit_expense_h: 'Edit expense',
+    add_expense_h: 'Add expense',
+    what_for: 'What for?',
+    what_for_ph: 'e.g. Groceries, Restaurant, Tickets',
+    field_amount: 'Amount',
+    amount_ph: '0.00',
+    field_date: 'Date',
+    paid_by: 'Paid by',
+    split_among: 'Split among',
+    save_changes: 'Save changes',
+    add_expense_btn: 'Add expense',
+    cancel: 'Cancel',
+    expense_updated: 'Expense updated',
+    expense_saved: 'Expense saved',
+    back: '← Overview',
+    copy_link: 'Copy link',
+    link_copied: 'Link copied',
+    copy_failed: 'Could not copy',
+    stat_total: 'Total',
+    stat_my_share: 'My share',
+    i_am: 'I am',
+    select_ph: 'select…',
+    tab_expenses: 'Expenses',
+    tab_settlement: 'Settlement',
+    section_expenses: 'Expenses',
+    no_expenses: 'No expenses yet.',
+    edit_tooltip: 'Edit',
+    delete_tooltip: 'Delete',
+    expense_deleted: 'Expense deleted',
+    delete_expense_confirm: 'Delete this expense?',
+    exp_meta: (payer, date, count) => `${payer} · ${date} · ${count} people`,
+    section_balances: 'Balances',
+    receives: 'receives',
+    owes: 'owes',
+    balanced: 'settled',
+    section_settlement: 'Settlement',
+    bill_closed_info: (d) => `This bill is closed (${d}). Changes are locked.`,
+    reopen: 'Reopen',
+    reopened: 'Reopened',
+    all_settled: 'All settled. No payments due.',
+    close_bill: 'Close bill',
+    close_confirm: 'Close bill? No further changes will be possible until it is reopened.',
+    bill_closed_toast: 'Bill closed',
+    open_payments_info: 'Open payments – adjust amount for partial payments and tap "paid":',
+    paid_btn: 'paid',
+    payment_recorded: 'Payment recorded',
+    section_paid: 'Paid',
+    undo_btn: 'undo',
+    undo_tooltip: 'Undo',
+    payment_undone: 'Payment undone',
+    not_found: 'Not found',
+    to_overview: 'Back to overview',
+    admin_only: 'Admins only',
+    section_admin: 'Admin',
+    admin_lead: 'Manage bills and people.',
+    section_people: 'People',
+    no_people_saved: 'No people saved yet.',
+    delete_btn: 'Delete',
+    delete_person_confirm: (name) => `Remove person "${name}" from the pool? Existing bills remain unchanged.`,
+    person_deleted: 'Person deleted',
+    no_bills_admin: 'No bills found.',
+    open_btn: 'Open',
+    rename_btn: 'Rename',
+    rename_prompt_label: 'New title:',
+    renamed: 'Renamed',
+    delete_bill_confirm: (title) => `Permanently delete bill "${title}" with all expenses?`,
+    deleted: 'Deleted',
+    badge_closed: 'closed',
+    tc_meta: (members, expenses) => `${members} people · ${expenses} expenses`,
+    brand_tag: 'Split expenses fairly',
+    logout: 'Log out',
+    footer: 'Self-hosted · no accounts, no tracking',
+  },
+};
+
+const lang = navigator.language.toLowerCase().startsWith('de') ? 'de' : 'en';
+const t = (key, ...args) => {
+  const val = i18n[lang][key];
+  return typeof val === 'function' ? val(...args) : (val ?? key);
+};
+const numLocale = lang === 'de' ? 'de-DE' : 'en-US';
+const decSep = lang === 'de' ? ',' : '.';
+
 const fmtAmt = (cents, cur = CURRENCY) =>
-  (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + cur;
+  (cents / 100).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + cur;
 const fmt = (cents) => fmtAmt(cents, CURRENCY);
+const fmtInput = (cents) => (cents / 100).toFixed(2).replace('.', decSep);
 
 async function api(method, url, body) {
   const res = await fetch(url, {
@@ -18,9 +218,9 @@ async function api(method, url, body) {
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (res.status === 401) { location.href = '/login'; throw new Error('Nicht angemeldet.'); }
+  if (res.status === 401) { location.href = '/login'; throw new Error(t('err_not_auth')); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Es ist ein Fehler aufgetreten.');
+  if (!res.ok) throw new Error(data.error || t('err_generic'));
   return data;
 }
 
@@ -44,21 +244,29 @@ function updateChrome() {
 // ---- Router -----------------------------------------------------------------
 function router() {
   const hash = location.hash.slice(1) || '/';
-  const t = hash.match(/^\/t\/(.+)$/);
-  if (t) return viewTricount(t[1]);
+  const m = hash.match(/^\/t\/(.+)$/);
+  if (m) return viewTricount(m[1]);
   if (hash === '/admin') return viewAdmin();
   return viewDashboard();
 }
 window.addEventListener('hashchange', router);
 window.addEventListener('load', async () => {
+  document.title = 'Dreicount · ' + t('brand_tag');
+  const brandTagEl = document.querySelector('.brand-tag');
+  if (brandTagEl) brandTagEl.textContent = t('brand_tag');
+  const logoutEl = document.querySelector('.logout');
+  if (logoutEl) logoutEl.textContent = t('logout');
+  const footerEl = document.querySelector('.footer span');
+  if (footerEl) footerEl.textContent = t('footer');
+
   try { ME = await api('GET', '/api/me'); } catch {}
   updateChrome();
   router();
 });
 
-// ---- Dashboard: alle Abrechnungen -------------------------------------------
+// ---- Dashboard --------------------------------------------------------------
 async function viewDashboard() {
-  app.innerHTML = '<p class="empty">Lade Übersicht…</p>';
+  app.innerHTML = `<p class="empty">${t('loading_overview')}</p>`;
   let list, users;
   try { [list, users] = await Promise.all([api('GET', '/api/tricounts'), api('GET', '/api/users')]); }
   catch (e) { app.innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
@@ -66,24 +274,24 @@ async function viewDashboard() {
   app.innerHTML = '';
   app.appendChild(h(`
     <section>
-      <h1 class="hero">Deine Abrechnungen</h1>
-      <p class="lead">Wähle eine Abrechnung zum Beitreten oder leg eine neue an.</p>
+      <h1 class="hero">${t('your_bills')}</h1>
+      <p class="lead">${t('your_bills_lead')}</p>
     </section>
   `));
 
-  const listCard = h('<section class="card"><h2>Alle Abrechnungen</h2></section>');
+  const listCard = h(`<section class="card"><h2>${t('all_bills')}</h2></section>`);
   if (!list.length) {
-    listCard.appendChild(h('<p class="empty">Noch keine Abrechnung vorhanden. Leg unten die erste an.</p>'));
+    listCard.appendChild(h(`<p class="empty">${t('no_bills')}</p>`));
   } else {
     for (const tc of list) {
       const row = h(`
         <a class="tc-row${tc.closed_at ? ' closed' : ''}" href="#/t/${esc(tc.id)}">
           <div class="tc-body">
-            <div class="tc-title">${esc(tc.title)}${tc.closed_at ? ' <span class="badge-closed">geschlossen</span>' : ''}</div>
-            <div class="tc-meta">${tc.member_count} Personen · ${tc.expense_count} Ausgaben</div>
+            <div class="tc-title">${esc(tc.title)}${tc.closed_at ? ` <span class="badge-closed">${t('badge_closed')}</span>` : ''}</div>
+            <div class="tc-meta">${t('tc_meta', tc.member_count, tc.expense_count)}</div>
           </div>
           <div class="tc-sum">${fmtAmt(tc.total_cents, tc.currency)}</div>
-          <span class="tc-go">Öffnen →</span>
+          <span class="tc-go">${t('open_link')}</span>
         </a>
       `);
       listCard.appendChild(row);
@@ -91,29 +299,28 @@ async function viewDashboard() {
   }
   app.appendChild(listCard);
 
-  // Neue Abrechnung
   const card = h(`
     <section class="card">
-      <h2>Neue Abrechnung</h2>
+      <h2>${t('new_bill')}</h2>
       <div class="row">
         <div class="field" style="flex:1">
-          <label for="title">Titel</label>
-          <input id="title" placeholder="z. B. Wochenende in Hamburg" maxlength="120" />
+          <label for="title">${t('field_title')}</label>
+          <input id="title" placeholder="${t('title_ph')}" maxlength="120" />
         </div>
         <div class="field" style="flex:0 0 90px">
-          <label for="currency">Währung</label>
+          <label for="currency">${t('field_currency')}</label>
           <input id="currency" value="€" maxlength="4" />
         </div>
       </div>
       <div class="field">
-        <label>Teilnehmer auswählen</label>
+        <label>${t('select_members')}</label>
         <div class="checks" id="people"></div>
         <div class="add-person">
-          <input id="newperson" placeholder="Neue Person hinzufügen…" maxlength="60" />
-          <button class="btn-small btn-ghost" id="addperson" type="button">+ Person</button>
+          <input id="newperson" placeholder="${t('add_person_ph')}" maxlength="60" />
+          <button class="btn-small btn-ghost" id="addperson" type="button">${t('add_person_btn')}</button>
         </div>
       </div>
-      <button class="btn-primary" id="create">Abrechnung erstellen</button>
+      <button class="btn-primary" id="create">${t('create_bill_btn')}</button>
       <div class="error" id="err"></div>
     </section>
   `);
@@ -121,10 +328,9 @@ async function viewDashboard() {
   const people = card.querySelector('#people');
   const renderEmpty = () => {
     if (!people.querySelector('.chip')) {
-      people.innerHTML = '<span class="empty" style="padding:0">Noch keine Personen – füge unten welche hinzu.</span>';
+      people.innerHTML = `<span class="empty" style="padding:0">${t('no_people_chip')}</span>`;
     }
   };
-  // Fügt eine Personen-Auswahl hinzu (oder selektiert eine bestehende).
   const addChip = (user, selected) => {
     let cb = people.querySelector(`.chip input[value="${CSS.escape(user.id)}"]`);
     if (cb) { cb.checked = selected; cb.closest('.chip').classList.toggle('on', selected); return; }
@@ -165,42 +371,41 @@ async function viewDashboard() {
 
 // ---- Abrechnungs-Ansicht ----------------------------------------------------
 async function viewTricount(id) {
-  app.innerHTML = '<p class="empty">Lade Abrechnung…</p>';
+  app.innerHTML = `<p class="empty">${t('loading_bill')}</p>`;
   let data;
   try { data = await api('GET', '/api/tricounts/' + encodeURIComponent(id)); }
-  catch (e) { app.innerHTML = `<section class="card"><h2>Nicht gefunden</h2><p class="empty">${esc(e.message)}</p><a class="btn-ghost" href="#/">Zur Übersicht</a></section>`; return; }
+  catch (e) { app.innerHTML = `<section class="card"><h2>${t('not_found')}</h2><p class="empty">${esc(e.message)}</p><a class="btn-ghost" href="#/">${t('to_overview')}</a></section>`; return; }
   renderTricount(data);
 }
 
-// Formular zum Anlegen (expense = null) oder Bearbeiten einer Ausgabe.
 function expenseFormCard(data, expense) {
   const editing = !!expense;
   const inShares = (mid) => editing ? expense.shares.some((s) => s.member_id === mid) : true;
   const card = h(`
     <section class="card">
-      <h2>${editing ? 'Ausgabe bearbeiten' : 'Ausgabe hinzufügen'}</h2>
-      <div class="field"><label for="desc">Wofür?</label>
-        <input id="desc" placeholder="z. B. Einkauf, Restaurant, Tickets" maxlength="120" /></div>
+      <h2>${editing ? t('edit_expense_h') : t('add_expense_h')}</h2>
+      <div class="field"><label for="desc">${t('what_for')}</label>
+        <input id="desc" placeholder="${t('what_for_ph')}" maxlength="120" /></div>
       <div class="row">
-        <div class="field"><label for="amount">Betrag</label>
-          <input id="amount" class="amount-input" inputmode="decimal" placeholder="0,00" /></div>
-        <div class="field"><label for="date">Datum</label><input id="date" type="date" /></div>
+        <div class="field"><label for="amount">${t('field_amount')}</label>
+          <input id="amount" class="amount-input" inputmode="decimal" placeholder="${t('amount_ph')}" /></div>
+        <div class="field"><label for="date">${t('field_date')}</label><input id="date" type="date" /></div>
       </div>
-      <div class="field"><label for="payer">Bezahlt von</label>
+      <div class="field"><label for="payer">${t('paid_by')}</label>
         <select id="payer">${data.members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select></div>
-      <div class="field"><label>Aufteilen auf</label>
+      <div class="field"><label>${t('split_among')}</label>
         <div class="checks" id="among">
           ${data.members.map((m) => `<label class="chip${inShares(m.id) ? ' on' : ''}"><input type="checkbox" value="${m.id}"${inShares(m.id) ? ' checked' : ''} /> ${esc(m.name)}</label>`).join('')}
         </div></div>
       <div class="form-actions">
-        <button class="btn-primary" id="save">${editing ? 'Änderungen speichern' : 'Ausgabe eintragen'}</button>
-        ${editing ? '<button class="btn-ghost" id="cancel">Abbrechen</button>' : ''}
+        <button class="btn-primary" id="save">${editing ? t('save_changes') : t('add_expense_btn')}</button>
+        ${editing ? `<button class="btn-ghost" id="cancel">${t('cancel')}</button>` : ''}
       </div>
       <div class="error" id="aerr"></div>
     </section>
   `);
   card.querySelector('#desc').value = editing ? expense.description : '';
-  card.querySelector('#amount').value = editing ? (expense.amount_cents / 100).toFixed(2).replace('.', ',') : '';
+  card.querySelector('#amount').value = editing ? fmtInput(expense.amount_cents) : '';
   card.querySelector('#date').value = editing ? expense.spent_on : new Date().toISOString().slice(0, 10);
   if (editing) card.querySelector('#payer').value = expense.paid_by;
   card.querySelectorAll('.chip input').forEach((cb) =>
@@ -218,7 +423,7 @@ function expenseFormCard(data, expense) {
         ? await api('PUT', `/api/tricounts/${data.id}/expenses/${expense.id}`, body)
         : await api('POST', `/api/tricounts/${data.id}/expenses`, body);
       renderTricount(updated);
-      toast(editing ? 'Ausgabe aktualisiert' : 'Ausgabe gespeichert');
+      toast(editing ? t('expense_updated') : t('expense_saved'));
     } catch (e) { err.textContent = e.message; }
   });
   if (editing) card.querySelector('#cancel').addEventListener('click', () => renderTricount(data));
@@ -231,23 +436,23 @@ function renderTricount(data, editingId = null) {
   const name = (mid) => { const m = data.members.find((x) => x.id === mid); return m ? m.name : '?'; };
   app.innerHTML = '';
 
-  app.appendChild(h('<a class="back" href="#/">← Übersicht</a>'));
-  app.appendChild(h(`<h1 class="hero">${esc(data.title)}${closed ? ' <span class="badge-closed">geschlossen</span>' : ''}</h1>`));
+  app.appendChild(h(`<a class="back" href="#/">${t('back')}</a>`));
+  app.appendChild(h(`<h1 class="hero">${esc(data.title)}${closed ? ` <span class="badge-closed">${t('badge_closed')}</span>` : ''}</h1>`));
 
   const shareUrl = location.origin + '/#/t/' + data.id;
   const share = h(`
     <div class="share">
       <code>${esc(shareUrl)}</code>
-      <button class="btn-small btn-primary" id="copy" style="width:auto">Link kopieren</button>
+      <button class="btn-small btn-primary" id="copy" style="width:auto">${t('copy_link')}</button>
     </div>
   `);
   share.querySelector('#copy').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(shareUrl); toast('Link kopiert'); }
-    catch { toast('Kopieren nicht möglich'); }
+    try { await navigator.clipboard.writeText(shareUrl); toast(t('link_copied')); }
+    catch { toast(t('copy_failed')); }
   });
   app.appendChild(share);
 
-  // Statistik-Leiste: Gesamtbetrag + persönlicher Anteil + Namens-Auswahl
+  // Statistik-Leiste
   const totalCents = data.expenses.reduce((s, e) => s + e.amount_cents, 0);
   const savedMe = localStorage.getItem('me_' + data.id) || '';
   const myShare = (mid) => data.expenses.reduce((sum, e) =>
@@ -259,17 +464,17 @@ function renderTricount(data, editingId = null) {
     <div class="card stats-bar">
       <div class="stats-row">
         <div class="stats-chunk">
-          <div class="stats-lbl">Gesamt</div>
+          <div class="stats-lbl">${t('stat_total')}</div>
           <div class="stats-val">${fmt(totalCents)}</div>
         </div>
         <div class="stats-chunk" id="my-chunk"${savedMe ? '' : ' hidden'}>
-          <div class="stats-lbl">Mein Anteil</div>
+          <div class="stats-lbl">${t('stat_my_share')}</div>
           <div class="stats-val" id="my-val">${savedMe ? fmt(myShare(savedMe)) : ''}</div>
         </div>
         <div class="stats-who">
-          <div class="stats-lbl">Du bist</div>
+          <div class="stats-lbl">${t('i_am')}</div>
           <select class="who-select" id="who-am-i">
-            <option value="">wählen…</option>
+            <option value="">${t('select_ph')}</option>
             ${data.members.map((m) => `<option value="${esc(m.id)}"${m.id === savedMe ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}
           </select>
         </div>
@@ -292,8 +497,8 @@ function renderTricount(data, editingId = null) {
   // Tab-Leiste
   const tabBar = h(`
     <div class="tab-bar">
-      <button class="tab-btn${activeTab === 0 ? ' active' : ''}" data-tab="0">Ausgaben</button>
-      <button class="tab-btn${activeTab === 1 ? ' active' : ''}" data-tab="1">Ausgleich</button>
+      <button class="tab-btn${activeTab === 0 ? ' active' : ''}" data-tab="0">${t('tab_expenses')}</button>
+      <button class="tab-btn${activeTab === 1 ? ' active' : ''}" data-tab="1">${t('tab_settlement')}</button>
     </div>
   `);
   const tab1 = h('<div class="tab-pane"></div>');
@@ -313,26 +518,24 @@ function renderTricount(data, editingId = null) {
   app.appendChild(tab1);
   app.appendChild(tab2);
 
-  // Ausgabe hinzufügen oder – wenn eine Ausgabe bearbeitet wird – das Bearbeiten-Formular.
-  // Bei geschlossener Abrechnung ist kein Formular sichtbar (schreibgeschützt).
   if (!closed) {
     const editing = editingId ? data.expenses.find((e) => e.id === editingId) : null;
     tab1.appendChild(expenseFormCard(data, editing || null));
   }
 
   // Ausgabenliste
-  const expCard = h('<section class="card"><h2>Ausgaben</h2></section>');
-  if (!data.expenses.length) expCard.appendChild(h('<p class="empty">Noch keine Ausgaben.</p>'));
+  const expCard = h(`<section class="card"><h2>${t('section_expenses')}</h2></section>`);
+  if (!data.expenses.length) expCard.appendChild(h(`<p class="empty">${t('no_expenses')}</p>`));
   else for (const e of data.expenses) {
     const isEditing = e.id === editingId;
     const row = h(`
       <div class="exp${isEditing ? ' editing' : ''}">
         <div class="exp-body">
           <div class="exp-desc">${esc(e.description)}</div>
-          <div class="exp-meta">${esc(name(e.paid_by))} · ${esc(e.spent_on)} · ${e.shares.length} Personen</div>
+          <div class="exp-meta">${t('exp_meta', esc(name(e.paid_by)), esc(e.spent_on), e.shares.length)}</div>
         </div>
         <div class="exp-amt">${fmt(e.amount_cents)}</div>
-        ${closed ? '' : '<button class="exp-edit" title="Bearbeiten">✎</button><button class="exp-del" title="Löschen">×</button>'}
+        ${closed ? '' : `<button class="exp-edit" title="${t('edit_tooltip')}">✎</button><button class="exp-del" title="${t('delete_tooltip')}">×</button>`}
       </div>
     `);
     if (!closed) {
@@ -341,8 +544,9 @@ function renderTricount(data, editingId = null) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
       row.querySelector('.exp-del').addEventListener('click', async () => {
-        if (!confirm('Diese Ausgabe löschen?')) return;
-        renderTricount(await api('DELETE', `/api/tricounts/${data.id}/expenses/${e.id}`)); toast('Ausgabe gelöscht');
+        if (!confirm(t('delete_expense_confirm'))) return;
+        renderTricount(await api('DELETE', `/api/tricounts/${data.id}/expenses/${e.id}`));
+        toast(t('expense_deleted'));
       });
     }
     expCard.appendChild(row);
@@ -351,11 +555,11 @@ function renderTricount(data, editingId = null) {
 
   // Salden
   const maxAbs = Math.max(1, ...data.members.map((m) => Math.abs(data.balances[m.id] || 0)));
-  const balCard = h('<section class="card"><h2>Salden</h2></section>');
+  const balCard = h(`<section class="card"><h2>${t('section_balances')}</h2></section>`);
   for (const m of data.members) {
     const b = data.balances[m.id] || 0;
     const cls = b > 0 ? 'pos' : b < 0 ? 'neg' : '';
-    const label = b > 0 ? 'bekommt' : b < 0 ? 'schuldet' : 'ausgeglichen';
+    const label = b > 0 ? t('receives') : b < 0 ? t('owes') : t('balanced');
     balCard.appendChild(h(`
       <div class="bal">
         <div class="bal-head"><span class="bal-name">${esc(m.name)}</span>
@@ -367,39 +571,37 @@ function renderTricount(data, editingId = null) {
   }
   tab2.appendChild(balCard);
 
-  // Ausgleich (offen) mit "als bezahlt markieren"
-  const setCard = h('<section class="card"><h2>Ausgleich</h2></section>');
+  // Ausgleich
+  const setCard = h(`<section class="card"><h2>${t('section_settlement')}</h2></section>`);
   if (closed) {
-    // Geschlossen: Status anzeigen und Wieder-öffnen anbieten.
-    setCard.appendChild(h(`<p class="empty">Diese Abrechnung ist abgeschlossen (${esc(data.closed_at)}). Änderungen sind gesperrt.</p>`));
-    const reopen = h('<button class="btn-ghost" id="reopen" style="padding:10px 14px">Wieder öffnen</button>');
+    setCard.appendChild(h(`<p class="empty">${t('bill_closed_info', esc(data.closed_at))}</p>`));
+    const reopen = h(`<button class="btn-ghost" id="reopen" style="padding:10px 14px">${t('reopen')}</button>`);
     reopen.addEventListener('click', async () => {
-      try { renderTricount(await api('POST', `/api/tricounts/${data.id}/reopen`)); toast('Wieder geöffnet'); }
+      try { renderTricount(await api('POST', `/api/tricounts/${data.id}/reopen`)); toast(t('reopened')); }
       catch (e) { toast(e.message); }
     });
     setCard.appendChild(reopen);
   } else if (!data.settlements.length) {
-    // Alles ausgeglichen: Abschließen anbieten (sofern es überhaupt etwas gibt).
-    setCard.appendChild(h('<p class="empty">Alles ausgeglichen. Keine Zahlungen offen.</p>'));
+    setCard.appendChild(h(`<p class="empty">${t('all_settled')}</p>`));
     if (data.expenses.length) {
-      const closeBtn = h('<button class="btn-primary" id="closebtn">Abrechnung abschließen</button>');
+      const closeBtn = h(`<button class="btn-primary" id="closebtn">${t('close_bill')}</button>`);
       closeBtn.addEventListener('click', async () => {
-        if (!confirm('Abrechnung abschließen? Danach sind keine Änderungen mehr möglich, bis sie wieder geöffnet wird.')) return;
-        try { renderTricount(await api('POST', `/api/tricounts/${data.id}/close`)); toast('Abrechnung geschlossen'); }
+        if (!confirm(t('close_confirm'))) return;
+        try { renderTricount(await api('POST', `/api/tricounts/${data.id}/close`)); toast(t('bill_closed_toast')); }
         catch (e) { toast(e.message); }
       });
       setCard.appendChild(closeBtn);
     }
   } else {
-    setCard.appendChild(h('<p class="settle-info">Offene Zahlungen – Betrag anpassen für Teilzahlungen und „bezahlt" tippen:</p>'));
+    setCard.appendChild(h(`<p class="settle-info">${t('open_payments_info')}</p>`));
     for (const s of data.settlements) {
       const row = h(`
         <div class="settle">
           <span class="who">${esc(name(s.from))}</span><span class="arrow">→</span>
           <span class="who">${esc(name(s.to))}</span>
           <span class="sum">${fmt(s.amount_cents)}</span>
-          <input class="pay-amt amount-input" inputmode="decimal" aria-label="Betrag" value="${(s.amount_cents / 100).toFixed(2).replace('.', ',')}" />
-          <button class="btn-small btn-pay">bezahlt</button>
+          <input class="pay-amt amount-input" inputmode="decimal" aria-label="${t('field_amount')}" value="${fmtInput(s.amount_cents)}" />
+          <button class="btn-small btn-pay">${t('paid_btn')}</button>
         </div>
       `);
       row.querySelector('.btn-pay').addEventListener('click', async () => {
@@ -407,7 +609,7 @@ function renderTricount(data, editingId = null) {
         try {
           renderTricount(await api('POST', `/api/tricounts/${data.id}/payments`,
             { from: s.from, to: s.to, amount }));
-          toast('Zahlung erfasst');
+          toast(t('payment_recorded'));
         } catch (e) { toast(e.message); }
       });
       setCard.appendChild(row);
@@ -417,19 +619,19 @@ function renderTricount(data, editingId = null) {
 
   // Erfasste Zahlungen
   if (data.payments && data.payments.length) {
-    const payCard = h('<section class="card"><h2>Bezahlt</h2></section>');
+    const payCard = h(`<section class="card"><h2>${t('section_paid')}</h2></section>`);
     for (const p of data.payments) {
       const row = h(`
         <div class="settle done">
           <span class="who">${esc(name(p.from_member))}</span><span class="arrow">→</span>
           <span class="who">${esc(name(p.to_member))}</span>
           <span class="sum">${fmt(p.amount_cents)}</span>
-          ${closed ? '' : '<button class="btn-small btn-undo" title="Rückgängig">rückgängig</button>'}
+          ${closed ? '' : `<button class="btn-small btn-undo" title="${t('undo_tooltip')}">${t('undo_btn')}</button>`}
         </div>
       `);
       if (!closed) row.querySelector('.btn-undo').addEventListener('click', async () => {
         renderTricount(await api('DELETE', `/api/tricounts/${data.id}/payments/${p.id}`));
-        toast('Zahlung zurückgenommen');
+        toast(t('payment_undone'));
       });
       payCard.appendChild(row);
     }
@@ -439,64 +641,63 @@ function renderTricount(data, editingId = null) {
 
 // ---- Admin-Seite ------------------------------------------------------------
 async function viewAdmin() {
-  if (ME.role !== 'admin') { toast('Nur für Administratoren'); location.hash = '/'; return; }
-  app.innerHTML = '<p class="empty">Lade Verwaltung…</p>';
+  if (ME.role !== 'admin') { toast(t('admin_only')); location.hash = '/'; return; }
+  app.innerHTML = `<p class="empty">${t('loading_admin')}</p>`;
   let list, users;
   try { [list, users] = await Promise.all([api('GET', '/api/tricounts'), api('GET', '/api/users')]); }
   catch (e) { app.innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
 
   app.innerHTML = '';
-  app.appendChild(h('<a class="back" href="#/">← Übersicht</a>'));
-  app.appendChild(h('<h1 class="hero">Verwaltung</h1>'));
-  app.appendChild(h('<p class="lead">Abrechnungen und Personen verwalten.</p>'));
+  app.appendChild(h(`<a class="back" href="#/">${t('back')}</a>`));
+  app.appendChild(h(`<h1 class="hero">${t('section_admin')}</h1>`));
+  app.appendChild(h(`<p class="lead">${t('admin_lead')}</p>`));
 
-  // Personen-Pool
-  const pCard = h('<section class="card"><h2>Personen</h2></section>');
-  if (!users.length) pCard.appendChild(h('<p class="empty">Noch keine Personen gespeichert.</p>'));
+  const pCard = h(`<section class="card"><h2>${t('section_people')}</h2></section>`);
+  if (!users.length) pCard.appendChild(h(`<p class="empty">${t('no_people_saved')}</p>`));
   else for (const u of users) {
     const row = h(`
       <div class="admin-row">
         <div class="tc-body"><div class="tc-title">${esc(u.name)}</div></div>
         <div class="admin-actions">
-          <button class="btn-small btn-del btn-del-user">Löschen</button>
+          <button class="btn-small btn-del btn-del-user">${t('delete_btn')}</button>
         </div>
       </div>
     `);
     row.querySelector('.btn-del-user').addEventListener('click', async () => {
-      if (!confirm(`Person „${u.name}" aus dem Pool entfernen? Bestehende Abrechnungen bleiben unverändert.`)) return;
+      if (!confirm(t('delete_person_confirm', u.name))) return;
       await api('DELETE', `/api/users/${u.id}`);
-      toast('Person gelöscht'); viewAdmin();
+      toast(t('person_deleted')); viewAdmin();
     });
     pCard.appendChild(row);
   }
   app.appendChild(pCard);
 
-  const card = h('<section class="card"><h2>Alle Abrechnungen</h2></section>');
-  if (!list.length) card.appendChild(h('<p class="empty">Keine Abrechnungen vorhanden.</p>'));
+  const card = h(`<section class="card"><h2>${t('all_bills')}</h2></section>`);
+  if (!list.length) card.appendChild(h(`<p class="empty">${t('no_bills_admin')}</p>`));
   else for (const tc of list) {
     const row = h(`
       <div class="admin-row">
         <div class="tc-body">
           <div class="tc-title">${esc(tc.title)}</div>
-          <div class="tc-meta">${tc.member_count} Personen · ${tc.expense_count} Ausgaben · ${fmtAmt(tc.total_cents, tc.currency)}</div>
+          <div class="tc-meta">${t('tc_meta', tc.member_count, tc.expense_count)} · ${fmtAmt(tc.total_cents, tc.currency)}</div>
         </div>
         <div class="admin-actions">
-          <a class="btn-small btn-ghost" href="#/t/${esc(tc.id)}">Öffnen</a>
-          <button class="btn-small btn-ghost btn-rename">Umbenennen</button>
-          <button class="btn-small btn-del">Löschen</button>
+          <a class="btn-small btn-ghost" href="#/t/${esc(tc.id)}">${t('open_btn')}</a>
+          <button class="btn-small btn-ghost btn-rename">${t('rename_btn')}</button>
+          <button class="btn-small btn-del">${t('delete_btn')}</button>
         </div>
       </div>
     `);
     row.querySelector('.btn-rename').addEventListener('click', async () => {
-      const title = prompt('Neuer Titel:', tc.title);
+      const title = prompt(t('rename_prompt_label'), tc.title);
       if (!title || !title.trim()) return;
       await api('PATCH', `/api/admin/tricounts/${tc.id}`, { title: title.trim() });
-      toast('Umbenannt'); viewAdmin();
+      toast(t('renamed')); viewAdmin();
     });
     row.querySelector('.btn-del').addEventListener('click', async () => {
-      if (!confirm(`Abrechnung „${tc.title}" mit allen Ausgaben unwiderruflich löschen?`)) return;
+      if (!confirm(t('delete_bill_confirm', tc.title))) return;
       await api('DELETE', `/api/admin/tricounts/${tc.id}`);
-      toast('Gelöscht'); viewAdmin();
+      toast(t('deleted')); viewAdmin();
     });
     card.appendChild(row);
   }

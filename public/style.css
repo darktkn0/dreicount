@@ -11,9 +11,9 @@
   --negative:  #f8765c;
   --shadow:    0 1px 2px rgba(0,0,0,.45), 0 10px 30px rgba(0,0,0,.35);
   --radius:    14px;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans: "Inter", system-ui, -apple-system, sans-serif;
-  --display: "Fraunces", Georgia, serif;
+  --mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "Roboto", system-ui, -apple-system, sans-serif;
+  --display: "Roboto", system-ui, -apple-system, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -44,7 +44,7 @@ body {
 .brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); }
 .brand-mark {
   font-family: var(--display);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1.5rem;
   width: 34px; height: 34px;
   display: grid; place-items: center;
@@ -137,7 +137,7 @@ body {
 
 .hero {
   font-family: var(--display);
-  font-weight: 600;
+  font-weight: 700;
   font-size: clamp(1.8rem, 6vw, 2.4rem);
   line-height: 1.1;
   letter-spacing: -.02em;
