@@ -131,14 +131,57 @@ certbot --nginx -d dreicount.deine-domain.de    # HTTPS
 
 ## Updates einspielen
 
+### Automatisch bei Push auf `master` (GitHub Actions)
+
+Der Workflow `.github/workflows/deploy.yml` verbindet sich bei jedem Push auf
+`master` per SSH zur VPS und führt dort `deploy/update.sh` aus (holt den neuen
+Stand, baut das Image neu, startet den Container, räumt alte Images auf).
+
+**Einmalige Einrichtung:**
+
+1. **Repo auf der VPS als Git-Clone auschecken** (statt scp), damit `git pull`
+   funktioniert:
+
+   ```bash
+   cd /opt
+   git clone https://github.com/darktkn0/dreicount.git
+   cd dreicount
+   cp .env.example .env && nano .env      # AUTH_PASSWORD/SESSION_SECRET setzen
+   docker compose up -d --build           # erster Start
+   ```
+
+2. **SSH-Key für den Deploy anlegen** (auf der VPS, eigener Key nur dafür):
+
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/dreicount_deploy -N "" -C "github-deploy"
+   cat ~/.ssh/dreicount_deploy.pub >> ~/.ssh/authorized_keys
+   cat ~/.ssh/dreicount_deploy            # privaten Key kopieren -> GitHub-Secret
+   ```
+
+3. **GitHub-Secrets setzen** (Repo → *Settings → Secrets and variables →
+   Actions → New repository secret*):
+
+   | Secret         | Wert                                                       |
+   |----------------|------------------------------------------------------------|
+   | `VPS_HOST`     | IP oder Hostname der VPS                                    |
+   | `VPS_USER`     | SSH-Benutzer (muss Docker ausführen dürfen)                |
+   | `VPS_SSH_KEY`  | **privater** Key aus Schritt 2 (kompletter Inhalt)         |
+   | `VPS_PORT`     | optional, falls SSH nicht auf 22 läuft                     |
+   | `VPS_APP_DIR`  | optional, falls das Projekt nicht in `/opt/dreicount` liegt |
+
+   Der Deploy-User muss `docker` nutzen dürfen (z. B. `usermod -aG docker <user>`).
+
+Danach: einfach auf `master` pushen → Container wird auf der VPS neu gebaut.
+Manuell auslösen geht über *Actions → Deploy to VPS → Run workflow*.
+
+### Manuell (ohne CI)
+
 ```bash
 cd /opt/dreicount
-# neue Dateien einspielen (git pull / scp)
-docker compose up -d --build
-docker image prune -f      # alte Images aufräumen
+bash deploy/update.sh
 ```
 
-Das Volume `dreicount-data` bleibt erhalten, die Daten also auch.
+Das Volume `dreicount-data` bleibt bei beiden Wegen erhalten, die Daten also auch.
 
 ---
 
