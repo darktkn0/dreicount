@@ -321,46 +321,56 @@ app.get('/api/tricounts/:id', (req, res) => {
   res.json(data);
 });
 
+// Parst & validiert die Eingabe einer Ausgabe (für Anlegen und Bearbeiten).
+// Liefert { value: {...} } oder { error: '...' }.
+function parseExpenseInput(body, memberIds) {
+  const memberSet = new Set(memberIds);
+
+  const description = clean(body?.description, 120);
+  const amountCents = toCents(body?.amount);
+  const paidBy = clean(body?.paid_by, 40);
+  const spentOn = clean(body?.spent_on, 10) || new Date().toISOString().slice(0, 10);
+
+  if (!description) return { error: 'Beschreibung fehlt.' };
+  if (!amountCents) return { error: 'Ungültiger Betrag.' };
+  if (!memberSet.has(paidBy)) return { error: 'Zahler unbekannt.' };
+
+  // Aufteilung bestimmen
+  let shares;
+  if (Array.isArray(body?.shares) && body.shares.length) {
+    // Benutzerdefiniert: { member_id, amount } - muss exakt auf Betrag summieren
+    shares = [];
+    let sum = 0;
+    for (const s of body.shares) {
+      const mid = clean(s?.member_id, 40);
+      const c = toCents(s?.amount);
+      if (!memberSet.has(mid) || !c) return { error: 'Ungültige Aufteilung.' };
+      shares.push({ member_id: mid, share_cents: c });
+      sum += c;
+    }
+    if (sum !== amountCents) return { error: 'Aufteilung ergibt nicht den Gesamtbetrag.' };
+  } else {
+    // Gleichmäßig: optional nur auf eine Teilmenge
+    let amongRaw = Array.isArray(body?.split_among) && body.split_among.length
+      ? body.split_among.map((m) => clean(m, 40))
+      : memberIds;
+    const among = amongRaw.filter((m) => memberSet.has(m));
+    if (!among.length) return { error: 'Niemand zum Aufteilen ausgewählt.' };
+    shares = splitEqually(amountCents, among);
+  }
+
+  return { value: { description, amountCents, paidBy, spentOn, shares } };
+}
+
 // Ausgabe hinzufügen
 app.post('/api/tricounts/:id/expenses', (req, res) => {
   const tc = db.prepare('SELECT id FROM tricounts WHERE id = ?').get(req.params.id);
   if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
 
   const memberIds = db.prepare('SELECT id FROM members WHERE tricount_id = ?').all(tc.id).map((m) => m.id);
-  const memberSet = new Set(memberIds);
-
-  const description = clean(req.body?.description, 120);
-  const amountCents = toCents(req.body?.amount);
-  const paidBy = clean(req.body?.paid_by, 40);
-  const spentOn = clean(req.body?.spent_on, 10) || new Date().toISOString().slice(0, 10);
-
-  if (!description) return res.status(400).json({ error: 'Beschreibung fehlt.' });
-  if (!amountCents) return res.status(400).json({ error: 'Ungültiger Betrag.' });
-  if (!memberSet.has(paidBy)) return res.status(400).json({ error: 'Zahler unbekannt.' });
-
-  // Aufteilung bestimmen
-  let shares;
-  if (Array.isArray(req.body?.shares) && req.body.shares.length) {
-    // Benutzerdefiniert: { member_id, amount } - muss exakt auf Betrag summieren
-    shares = [];
-    let sum = 0;
-    for (const s of req.body.shares) {
-      const mid = clean(s?.member_id, 40);
-      const c = toCents(s?.amount);
-      if (!memberSet.has(mid) || !c) return res.status(400).json({ error: 'Ungültige Aufteilung.' });
-      shares.push({ member_id: mid, share_cents: c });
-      sum += c;
-    }
-    if (sum !== amountCents) return res.status(400).json({ error: 'Aufteilung ergibt nicht den Gesamtbetrag.' });
-  } else {
-    // Gleichmäßig: optional nur auf eine Teilmenge
-    let amongRaw = Array.isArray(req.body?.split_among) && req.body.split_among.length
-      ? req.body.split_among.map((m) => clean(m, 40))
-      : memberIds;
-    const among = amongRaw.filter((m) => memberSet.has(m));
-    if (!among.length) return res.status(400).json({ error: 'Niemand zum Aufteilen ausgewählt.' });
-    shares = splitEqually(amountCents, among);
-  }
+  const parsed = parseExpenseInput(req.body, memberIds);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const { description, amountCents, paidBy, spentOn, shares } = parsed.value;
 
   const expenseId = genId(12);
   const insertExpense = db.prepare(
@@ -374,6 +384,35 @@ app.post('/api/tricounts/:id/expenses', (req, res) => {
   })();
 
   res.status(201).json(loadTricount(tc.id));
+});
+
+// Ausgabe bearbeiten
+app.put('/api/tricounts/:id/expenses/:expenseId', (req, res) => {
+  const tc = db.prepare('SELECT id FROM tricounts WHERE id = ?').get(req.params.id);
+  if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+
+  const existing = db.prepare('SELECT id FROM expenses WHERE id = ? AND tricount_id = ?')
+    .get(req.params.expenseId, tc.id);
+  if (!existing) return res.status(404).json({ error: 'Ausgabe nicht gefunden.' });
+
+  const memberIds = db.prepare('SELECT id FROM members WHERE tricount_id = ?').all(tc.id).map((m) => m.id);
+  const parsed = parseExpenseInput(req.body, memberIds);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const { description, amountCents, paidBy, spentOn, shares } = parsed.value;
+
+  const updateExpense = db.prepare(
+    'UPDATE expenses SET description = ?, amount_cents = ?, paid_by = ?, spent_on = ? WHERE id = ?'
+  );
+  const deleteShares = db.prepare('DELETE FROM expense_shares WHERE expense_id = ?');
+  const insertShare = db.prepare('INSERT INTO expense_shares (expense_id, member_id, share_cents) VALUES (?, ?, ?)');
+
+  db.transaction(() => {
+    updateExpense.run(description, amountCents, paidBy, spentOn, existing.id);
+    deleteShares.run(existing.id);
+    for (const s of shares) insertShare.run(existing.id, s.member_id, s.share_cents);
+  })();
+
+  res.json(loadTricount(tc.id));
 });
 
 // Ausgabe löschen

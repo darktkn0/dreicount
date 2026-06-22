@@ -193,8 +193,16 @@ button:active { transform: translateY(1px); }
 .exp-desc { font-weight: 500; }
 .exp-meta { font-size: .8rem; color: var(--muted); }
 .exp-amt { font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+.exp-edit { color: var(--muted); background: none; padding: 4px 8px; font-size: 1rem; line-height: 1; }
+.exp-edit:hover { color: var(--primary-d); }
 .exp-del { color: var(--muted); background: none; padding: 4px 8px; font-size: 1.1rem; line-height: 1; }
 .exp-del:hover { color: var(--negative); }
+.exp.editing { background: rgba(19,169,138,.08); border-radius: 8px; }
+
+/* Aktionen unter dem Ausgabenformular (Speichern / Abbrechen) */
+.form-actions { display: flex; gap: 10px; align-items: center; }
+.form-actions .btn-primary { width: auto; flex: 1; }
+.form-actions .btn-ghost { flex: 0 0 auto; }
 
 /* ---- Balances ---- */
 .bal { padding: 12px 0; border-top: 1px solid var(--line); }
@@ -219,6 +227,10 @@ button:active { transform: translateY(1px); }
 .settle .arrow { color: var(--primary); font-weight: 600; }
 .settle .who { font-family: var(--sans); font-weight: 500; }
 .settle .sum { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.settle .pay-amt {
+  flex: 0 0 88px; width: 88px; padding: 7px 10px; font-size: .85rem;
+  text-align: right; margin-left: 12px;
+}
 
 .empty { color: var(--muted); font-size: .9rem; padding: 8px 0; }
 .checks { display: flex; flex-wrap: wrap; gap: 8px; }

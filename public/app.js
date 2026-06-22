@@ -134,7 +134,60 @@ async function viewTricount(id) {
   renderTricount(data);
 }
 
-function renderTricount(data) {
+// Formular zum Anlegen (expense = null) oder Bearbeiten einer Ausgabe.
+function expenseFormCard(data, expense) {
+  const editing = !!expense;
+  const inShares = (mid) => editing ? expense.shares.some((s) => s.member_id === mid) : true;
+  const card = h(`
+    <section class="card">
+      <h2>${editing ? 'Ausgabe bearbeiten' : 'Ausgabe hinzufügen'}</h2>
+      <div class="field"><label for="desc">Wofür?</label>
+        <input id="desc" placeholder="z. B. Einkauf, Restaurant, Tickets" maxlength="120" /></div>
+      <div class="row">
+        <div class="field"><label for="amount">Betrag</label>
+          <input id="amount" class="amount-input" inputmode="decimal" placeholder="0,00" /></div>
+        <div class="field"><label for="date">Datum</label><input id="date" type="date" /></div>
+      </div>
+      <div class="field"><label for="payer">Bezahlt von</label>
+        <select id="payer">${data.members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Aufteilen auf</label>
+        <div class="checks" id="among">
+          ${data.members.map((m) => `<label class="chip${inShares(m.id) ? ' on' : ''}"><input type="checkbox" value="${m.id}"${inShares(m.id) ? ' checked' : ''} /> ${esc(m.name)}</label>`).join('')}
+        </div></div>
+      <div class="form-actions">
+        <button class="btn-primary" id="save">${editing ? 'Änderungen speichern' : 'Ausgabe eintragen'}</button>
+        ${editing ? '<button class="btn-ghost" id="cancel">Abbrechen</button>' : ''}
+      </div>
+      <div class="error" id="aerr"></div>
+    </section>
+  `);
+  card.querySelector('#desc').value = editing ? expense.description : '';
+  card.querySelector('#amount').value = editing ? (expense.amount_cents / 100).toFixed(2).replace('.', ',') : '';
+  card.querySelector('#date').value = editing ? expense.spent_on : new Date().toISOString().slice(0, 10);
+  if (editing) card.querySelector('#payer').value = expense.paid_by;
+  card.querySelectorAll('.chip input').forEach((cb) =>
+    cb.addEventListener('change', () => cb.closest('.chip').classList.toggle('on', cb.checked)));
+  card.querySelector('#save').addEventListener('click', async () => {
+    const desc = card.querySelector('#desc').value.trim();
+    const amount = card.querySelector('#amount').value.replace(',', '.');
+    const paid_by = card.querySelector('#payer').value;
+    const spent_on = card.querySelector('#date').value;
+    const split_among = [...card.querySelectorAll('.chip input:checked')].map((c) => c.value);
+    const err = card.querySelector('#aerr'); err.textContent = '';
+    const body = { description: desc, amount, paid_by, spent_on, split_among };
+    try {
+      const updated = editing
+        ? await api('PUT', `/api/tricounts/${data.id}/expenses/${expense.id}`, body)
+        : await api('POST', `/api/tricounts/${data.id}/expenses`, body);
+      renderTricount(updated);
+      toast(editing ? 'Ausgabe aktualisiert' : 'Ausgabe gespeichert');
+    } catch (e) { err.textContent = e.message; }
+  });
+  if (editing) card.querySelector('#cancel').addEventListener('click', () => renderTricount(data));
+  return card;
+}
+
+function renderTricount(data, editingId = null) {
   CURRENCY = data.currency || '€';
   const name = (mid) => { const m = data.members.find((x) => x.id === mid); return m ? m.name : '?'; };
   app.innerHTML = '';
@@ -155,56 +208,30 @@ function renderTricount(data) {
   });
   app.appendChild(share);
 
-  // Ausgabe hinzufügen
-  const addCard = h(`
-    <section class="card">
-      <h2>Ausgabe hinzufügen</h2>
-      <div class="field"><label for="desc">Wofür?</label>
-        <input id="desc" placeholder="z. B. Einkauf, Restaurant, Tickets" maxlength="120" /></div>
-      <div class="row">
-        <div class="field"><label for="amount">Betrag</label>
-          <input id="amount" class="amount-input" inputmode="decimal" placeholder="0,00" /></div>
-        <div class="field"><label for="date">Datum</label><input id="date" type="date" /></div>
-      </div>
-      <div class="field"><label for="payer">Bezahlt von</label>
-        <select id="payer">${data.members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select></div>
-      <div class="field"><label>Aufteilen auf</label>
-        <div class="checks" id="among">
-          ${data.members.map((m) => `<label class="chip on"><input type="checkbox" value="${m.id}" checked /> ${esc(m.name)}</label>`).join('')}
-        </div></div>
-      <button class="btn-primary" id="add">Ausgabe eintragen</button>
-      <div class="error" id="aerr"></div>
-    </section>
-  `);
-  addCard.querySelector('#date').value = new Date().toISOString().slice(0, 10);
-  addCard.querySelectorAll('.chip input').forEach((cb) =>
-    cb.addEventListener('change', () => cb.closest('.chip').classList.toggle('on', cb.checked)));
-  addCard.querySelector('#add').addEventListener('click', async () => {
-    const desc = addCard.querySelector('#desc').value.trim();
-    const amount = addCard.querySelector('#amount').value.replace(',', '.');
-    const paid_by = addCard.querySelector('#payer').value;
-    const spent_on = addCard.querySelector('#date').value;
-    const split_among = [...addCard.querySelectorAll('.chip input:checked')].map((c) => c.value);
-    const err = addCard.querySelector('#aerr'); err.textContent = '';
-    try { renderTricount(await api('POST', `/api/tricounts/${data.id}/expenses`, { description: desc, amount, paid_by, spent_on, split_among })); toast('Ausgabe gespeichert'); }
-    catch (e) { err.textContent = e.message; }
-  });
-  app.appendChild(addCard);
+  // Ausgabe hinzufügen oder – wenn eine Ausgabe bearbeitet wird – das Bearbeiten-Formular
+  const editing = editingId ? data.expenses.find((e) => e.id === editingId) : null;
+  app.appendChild(expenseFormCard(data, editing || null));
 
   // Ausgabenliste
   const expCard = h('<section class="card"><h2>Ausgaben</h2></section>');
   if (!data.expenses.length) expCard.appendChild(h('<p class="empty">Noch keine Ausgaben.</p>'));
   else for (const e of data.expenses) {
+    const isEditing = e.id === editingId;
     const row = h(`
-      <div class="exp">
+      <div class="exp${isEditing ? ' editing' : ''}">
         <div class="exp-body">
           <div class="exp-desc">${esc(e.description)}</div>
           <div class="exp-meta">${esc(name(e.paid_by))} · ${esc(e.spent_on)} · ${e.shares.length} Personen</div>
         </div>
         <div class="exp-amt">${fmt(e.amount_cents)}</div>
+        <button class="exp-edit" title="Bearbeiten">✎</button>
         <button class="exp-del" title="Löschen">×</button>
       </div>
     `);
+    row.querySelector('.exp-edit').addEventListener('click', () => {
+      renderTricount(data, isEditing ? null : e.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
     row.querySelector('.exp-del').addEventListener('click', async () => {
       if (!confirm('Diese Ausgabe löschen?')) return;
       renderTricount(await api('DELETE', `/api/tricounts/${data.id}/expenses/${e.id}`)); toast('Ausgabe gelöscht');
@@ -235,20 +262,24 @@ function renderTricount(data) {
   const setCard = h('<section class="card"><h2>Ausgleich</h2></section>');
   if (!data.settlements.length) setCard.appendChild(h('<p class="empty">Alles ausgeglichen. Keine Zahlungen offen.</p>'));
   else {
-    setCard.appendChild(h('<p class="empty">Offene Zahlungen – tippe „bezahlt", sobald jemand überwiesen hat:</p>'));
+    setCard.appendChild(h('<p class="empty">Offene Zahlungen – Betrag anpassen für Teilzahlungen und „bezahlt" tippen:</p>'));
     for (const s of data.settlements) {
       const row = h(`
         <div class="settle">
           <span class="who">${esc(name(s.from))}</span><span class="arrow">→</span>
           <span class="who">${esc(name(s.to))}</span>
           <span class="sum">${fmt(s.amount_cents)}</span>
+          <input class="pay-amt amount-input" inputmode="decimal" aria-label="Betrag" value="${(s.amount_cents / 100).toFixed(2).replace('.', ',')}" />
           <button class="btn-small btn-pay">bezahlt</button>
         </div>
       `);
       row.querySelector('.btn-pay').addEventListener('click', async () => {
-        renderTricount(await api('POST', `/api/tricounts/${data.id}/payments`,
-          { from: s.from, to: s.to, amount: s.amount_cents / 100 }));
-        toast('Als bezahlt markiert');
+        const amount = row.querySelector('.pay-amt').value.replace(',', '.');
+        try {
+          renderTricount(await api('POST', `/api/tricounts/${data.id}/payments`,
+            { from: s.from, to: s.to, amount }));
+          toast('Zahlung erfasst');
+        } catch (e) { toast(e.message); }
       });
       setCard.appendChild(row);
     }
