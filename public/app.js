@@ -106,7 +106,6 @@ const i18n = {
     paypal_section: 'PayPal-Adressen',
     paypal_email_ph: 'PayPal-E-Mail',
     paypal_saved: 'Gespeichert',
-    paypal_via: 'PayPal →',
     tab_paypal: 'PayPal',
     copy_email: 'Kopieren',
     email_copied: 'E-Mail kopiert',
@@ -206,7 +205,6 @@ const i18n = {
     paypal_section: 'PayPal Addresses',
     paypal_email_ph: 'PayPal email',
     paypal_saved: 'Saved',
-    paypal_via: 'PayPal →',
     tab_paypal: 'PayPal',
     copy_email: 'Copy',
     email_copied: 'Email copied',
@@ -655,18 +653,22 @@ function renderTricount(data, editingId = null) {
     for (const s of data.settlements) {
       const toMem = data.members.find((m) => m.id === s.to);
       const paypalEmail = toMem?.paypal_email;
-      const paypalLink = paypalEmail
-        ? `<a class="paypal-btn" href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(paypalEmail)}" target="_blank" rel="noopener noreferrer">${t('paypal_via')}</a>`
-        : '';
       const row = h(`
         <div class="settle">
           <span class="who">${esc(name(s.from))}</span><span class="arrow">→</span>
-          <span class="who">${esc(name(s.to))}</span>${paypalLink}
+          <span class="who">${esc(name(s.to))}</span>
+          ${paypalEmail ? `<button class="btn-small btn-ghost paypal-copy">${t('copy_email')}</button>` : ''}
           <span class="sum">${fmt(s.amount_cents)}</span>
           <input class="pay-amt amount-input" inputmode="decimal" aria-label="${t('field_amount')}" value="${fmtInput(s.amount_cents)}" />
           <button class="btn-small btn-pay">${t('paid_btn')}</button>
         </div>
       `);
+      if (paypalEmail) {
+        row.querySelector('.paypal-copy').addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(paypalEmail); toast(t('email_copied')); }
+          catch { toast(t('copy_failed')); }
+        });
+      }
       row.querySelector('.btn-pay').addEventListener('click', async () => {
         const amount = row.querySelector('.pay-amt').value.replace(',', '.');
         try {

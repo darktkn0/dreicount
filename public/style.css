@@ -285,12 +285,6 @@ button:active { transform: translateY(1px); }
 .paypal-row input { font-size: .88rem; padding: 8px 11px; margin: 0; flex: 1; }
 .paypal-copy { flex-shrink: 0; }
 .paypal-copy:disabled { opacity: .35; cursor: default; }
-.paypal-btn {
-  font-size: .72rem; color: var(--primary-d); text-decoration: none;
-  font-weight: 600; white-space: nowrap; flex-shrink: 0;
-  border: 1px solid var(--primary); border-radius: 99px; padding: 2px 8px;
-}
-.paypal-btn:hover { background: rgba(41,199,166,.12); }
 
 .empty { color: var(--muted); font-size: .9rem; padding: 8px 0; }
 .checks { display: flex; flex-wrap: wrap; gap: 8px; }
