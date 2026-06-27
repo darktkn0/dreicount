@@ -103,6 +103,10 @@ const i18n = {
     brand_tag: 'Ausgaben fair teilen',
     logout: 'Abmelden',
     footer: 'Selbst gehostet · keine Konten, kein Tracking',
+    paypal_section: 'PayPal-Adressen',
+    paypal_email_ph: 'PayPal-E-Mail',
+    paypal_saved: 'Gespeichert',
+    paypal_via: 'PayPal →',
   },
   en: {
     loading_overview: 'Loading overview…',
@@ -196,6 +200,10 @@ const i18n = {
     brand_tag: 'Split expenses fairly',
     logout: 'Log out',
     footer: 'Self-hosted · no accounts, no tracking',
+    paypal_section: 'PayPal Addresses',
+    paypal_email_ph: 'PayPal email',
+    paypal_saved: 'Saved',
+    paypal_via: 'PayPal →',
   },
 };
 
@@ -452,6 +460,35 @@ function renderTricount(data, editingId = null) {
   });
   app.appendChild(share);
 
+  // PayPal-Adressen
+  const paypalCard = h(`<section class="card"><h2>${t('paypal_section')}</h2></section>`);
+  for (const m of data.members) {
+    const row = h(`
+      <div class="paypal-row">
+        <span class="paypal-name">${esc(m.name)}</span>
+        <input type="email" inputmode="email" placeholder="${t('paypal_email_ph')}" value="${esc(m.paypal_email || '')}" />
+      </div>
+    `);
+    const input = row.querySelector('input');
+    let savedVal = m.paypal_email || '';
+    input.addEventListener('blur', async () => {
+      const val = input.value.trim();
+      if (val === savedVal) return;
+      try {
+        await api('PATCH', `/api/tricounts/${data.id}/members/${m.id}`, { paypal_email: val });
+        m.paypal_email = val || null;
+        savedVal = val;
+        toast(t('paypal_saved'));
+        renderTricount(data);
+      } catch (e) {
+        toast(e.message);
+        input.value = savedVal;
+      }
+    });
+    paypalCard.appendChild(row);
+  }
+  app.appendChild(paypalCard);
+
   // Statistik-Leiste
   const totalCents = data.expenses.reduce((s, e) => s + e.amount_cents, 0);
   const savedMe = localStorage.getItem('me_' + data.id) || '';
@@ -595,10 +632,15 @@ function renderTricount(data, editingId = null) {
   } else {
     setCard.appendChild(h(`<p class="settle-info">${t('open_payments_info')}</p>`));
     for (const s of data.settlements) {
+      const toMem = data.members.find((m) => m.id === s.to);
+      const paypalEmail = toMem?.paypal_email;
+      const paypalLink = paypalEmail
+        ? `<a class="paypal-btn" href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(paypalEmail)}" target="_blank" rel="noopener noreferrer">${t('paypal_via')}</a>`
+        : '';
       const row = h(`
         <div class="settle">
           <span class="who">${esc(name(s.from))}</span><span class="arrow">→</span>
-          <span class="who">${esc(name(s.to))}</span>
+          <span class="who">${esc(name(s.to))}</span>${paypalLink}
           <span class="sum">${fmt(s.amount_cents)}</span>
           <input class="pay-amt amount-input" inputmode="decimal" aria-label="${t('field_amount')}" value="${fmtInput(s.amount_cents)}" />
           <button class="btn-small btn-pay">${t('paid_btn')}</button>

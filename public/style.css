@@ -275,6 +275,21 @@ button:active { transform: translateY(1px); }
   padding: 7px 10px; cursor: pointer; width: auto;
 }
 
+/* ---- PayPal-Adressen ---- */
+.paypal-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-top: 1px solid var(--line);
+}
+.paypal-row:first-of-type { border-top: none; }
+.paypal-name { font-weight: 600; min-width: 80px; flex-shrink: 0; }
+.paypal-row input { font-size: .88rem; padding: 8px 11px; margin: 0; }
+.paypal-btn {
+  font-size: .72rem; color: var(--primary-d); text-decoration: none;
+  font-weight: 600; white-space: nowrap; flex-shrink: 0;
+  border: 1px solid var(--primary); border-radius: 99px; padding: 2px 8px;
+}
+.paypal-btn:hover { background: rgba(41,199,166,.12); }
+
 .empty { color: var(--muted); font-size: .9rem; padding: 8px 0; }
 .checks { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
