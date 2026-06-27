@@ -106,7 +106,9 @@ const i18n = {
     paypal_section: 'PayPal-Adressen',
     paypal_email_ph: 'PayPal-E-Mail',
     paypal_saved: 'Gespeichert',
-    paypal_via: 'PayPal →',
+    tab_paypal: 'PayPal',
+    copy_email: 'Kopieren',
+    email_copied: 'E-Mail kopiert',
   },
   en: {
     loading_overview: 'Loading overview…',
@@ -203,7 +205,9 @@ const i18n = {
     paypal_section: 'PayPal Addresses',
     paypal_email_ph: 'PayPal email',
     paypal_saved: 'Saved',
-    paypal_via: 'PayPal →',
+    tab_paypal: 'PayPal',
+    copy_email: 'Copy',
+    email_copied: 'Email copied',
   },
 };
 
@@ -460,35 +464,6 @@ function renderTricount(data, editingId = null) {
   });
   app.appendChild(share);
 
-  // PayPal-Adressen
-  const paypalCard = h(`<section class="card"><h2>${t('paypal_section')}</h2></section>`);
-  for (const m of data.members) {
-    const row = h(`
-      <div class="paypal-row">
-        <span class="paypal-name">${esc(m.name)}</span>
-        <input type="email" inputmode="email" placeholder="${t('paypal_email_ph')}" value="${esc(m.paypal_email || '')}" />
-      </div>
-    `);
-    const input = row.querySelector('input');
-    let savedVal = m.paypal_email || '';
-    input.addEventListener('blur', async () => {
-      const val = input.value.trim();
-      if (val === savedVal) return;
-      try {
-        await api('PATCH', `/api/tricounts/${data.id}/members/${m.id}`, { paypal_email: val });
-        m.paypal_email = val || null;
-        savedVal = val;
-        toast(t('paypal_saved'));
-        renderTricount(data);
-      } catch (e) {
-        toast(e.message);
-        input.value = savedVal;
-      }
-    });
-    paypalCard.appendChild(row);
-  }
-  app.appendChild(paypalCard);
-
   // Statistik-Leiste
   const totalCents = data.expenses.reduce((s, e) => s + e.amount_cents, 0);
   const savedMe = localStorage.getItem('me_' + data.id) || '';
@@ -536,12 +511,15 @@ function renderTricount(data, editingId = null) {
     <div class="tab-bar">
       <button class="tab-btn${activeTab === 0 ? ' active' : ''}" data-tab="0">${t('tab_expenses')}</button>
       <button class="tab-btn${activeTab === 1 ? ' active' : ''}" data-tab="1">${t('tab_settlement')}</button>
+      <button class="tab-btn${activeTab === 2 ? ' active' : ''}" data-tab="2">${t('tab_paypal')}</button>
     </div>
   `);
   const tab1 = h('<div class="tab-pane"></div>');
   const tab2 = h('<div class="tab-pane"></div>');
+  const tab3 = h('<div class="tab-pane"></div>');
   tab1.hidden = activeTab !== 0;
   tab2.hidden = activeTab !== 1;
+  tab3.hidden = activeTab !== 2;
   tabBar.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       activeTab = parseInt(btn.dataset.tab);
@@ -549,11 +527,52 @@ function renderTricount(data, editingId = null) {
       btn.classList.add('active');
       tab1.hidden = activeTab !== 0;
       tab2.hidden = activeTab !== 1;
+      tab3.hidden = activeTab !== 2;
     });
   });
   app.appendChild(tabBar);
   app.appendChild(tab1);
   app.appendChild(tab2);
+  app.appendChild(tab3);
+
+  // PayPal-Tab
+  const paypalCard = h(`<section class="card"><h2>${t('paypal_section')}</h2></section>`);
+  for (const m of data.members) {
+    const row = h(`
+      <div class="paypal-row">
+        <span class="paypal-name">${esc(m.name)}</span>
+        <input type="email" inputmode="email" placeholder="${t('paypal_email_ph')}" value="${esc(m.paypal_email || '')}" />
+        <button class="btn-small btn-ghost paypal-copy"${m.paypal_email ? '' : ' disabled'}>${t('copy_email')}</button>
+      </div>
+    `);
+    const input = row.querySelector('input');
+    const copyBtn = row.querySelector('.paypal-copy');
+    input.addEventListener('input', () => { copyBtn.disabled = !input.value.trim(); });
+    copyBtn.addEventListener('click', async () => {
+      const email = input.value.trim();
+      if (!email) return;
+      try { await navigator.clipboard.writeText(email); toast(t('email_copied')); }
+      catch { toast(t('copy_failed')); }
+    });
+    let savedVal = m.paypal_email || '';
+    input.addEventListener('blur', async () => {
+      const val = input.value.trim();
+      if (val === savedVal) return;
+      try {
+        await api('PATCH', `/api/tricounts/${data.id}/members/${m.id}`, { paypal_email: val });
+        m.paypal_email = val || null;
+        savedVal = val;
+        copyBtn.disabled = !val;
+        toast(t('paypal_saved'));
+        renderTricount(data);
+      } catch (e) {
+        toast(e.message);
+        input.value = savedVal;
+      }
+    });
+    paypalCard.appendChild(row);
+  }
+  tab3.appendChild(paypalCard);
 
   if (!closed) {
     const editing = editingId ? data.expenses.find((e) => e.id === editingId) : null;
@@ -634,18 +653,22 @@ function renderTricount(data, editingId = null) {
     for (const s of data.settlements) {
       const toMem = data.members.find((m) => m.id === s.to);
       const paypalEmail = toMem?.paypal_email;
-      const paypalLink = paypalEmail
-        ? `<a class="paypal-btn" href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(paypalEmail)}" target="_blank" rel="noopener noreferrer">${t('paypal_via')}</a>`
-        : '';
       const row = h(`
         <div class="settle">
           <span class="who">${esc(name(s.from))}</span><span class="arrow">→</span>
-          <span class="who">${esc(name(s.to))}</span>${paypalLink}
+          <span class="who">${esc(name(s.to))}</span>
+          ${paypalEmail ? `<button class="btn-small btn-ghost paypal-copy">${t('copy_email')}</button>` : ''}
           <span class="sum">${fmt(s.amount_cents)}</span>
           <input class="pay-amt amount-input" inputmode="decimal" aria-label="${t('field_amount')}" value="${fmtInput(s.amount_cents)}" />
           <button class="btn-small btn-pay">${t('paid_btn')}</button>
         </div>
       `);
+      if (paypalEmail) {
+        row.querySelector('.paypal-copy').addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(paypalEmail); toast(t('email_copied')); }
+          catch { toast(t('copy_failed')); }
+        });
+      }
       row.querySelector('.btn-pay').addEventListener('click', async () => {
         const amount = row.querySelector('.pay-amt').value.replace(',', '.');
         try {
