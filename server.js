@@ -241,7 +241,7 @@ function settle(balances) {
 function loadTricount(id) {
   const tc = db.prepare('SELECT id, title, currency, created_at, closed_at FROM tricounts WHERE id = ?').get(id);
   if (!tc) return null;
-  const members = db.prepare('SELECT id, name FROM members WHERE tricount_id = ? ORDER BY created_at').all(id);
+  const members = db.prepare('SELECT id, name, paypal_email FROM members WHERE tricount_id = ? ORDER BY created_at').all(id);
   const expenses = db.prepare(
     'SELECT id, description, amount_cents, paid_by, spent_on, created_at FROM expenses WHERE tricount_id = ? ORDER BY spent_on DESC, created_at DESC'
   ).all(id);
@@ -528,6 +528,20 @@ app.post('/api/tricounts/:id/reopen', (req, res) => {
   if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
   db.prepare('UPDATE tricounts SET closed_at = NULL WHERE id = ?').run(req.params.id);
   res.json(loadTricount(req.params.id));
+});
+
+// PayPal-E-Mail eines Mitglieds speichern
+app.patch('/api/tricounts/:id/members/:memberId', (req, res) => {
+  const tc = findTricount(req.params.id);
+  if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+  const member = db.prepare('SELECT id FROM members WHERE id = ? AND tricount_id = ?')
+    .get(req.params.memberId, tc.id);
+  if (!member) return res.status(404).json({ error: 'Mitglied nicht gefunden.' });
+  const email = clean(req.body?.paypal_email, 200);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.status(400).json({ error: 'Ungültige E-Mail-Adresse.' });
+  db.prepare('UPDATE members SET paypal_email = ? WHERE id = ?').run(email || null, member.id);
+  res.json({ ok: true });
 });
 
 // ---- Admin -------------------------------------------------------------------

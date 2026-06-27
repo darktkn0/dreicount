@@ -75,4 +75,10 @@ if (!tricountCols.includes('closed_at')) {
   db.exec('ALTER TABLE tricounts ADD COLUMN closed_at TEXT');
 }
 
+// Migration: PayPal-E-Mail je Mitglied.
+const memberCols = db.prepare('PRAGMA table_info(members)').all().map((c) => c.name);
+if (!memberCols.includes('paypal_email')) {
+  db.exec('ALTER TABLE members ADD COLUMN paypal_email TEXT');
+}
+
 export default db;
