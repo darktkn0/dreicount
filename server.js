@@ -517,7 +517,8 @@ app.post('/api/tricounts/:id/close', (req, res) => {
   const data = loadTricount(req.params.id);
   if (!data) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
   if (data.closed_at) return res.status(409).json({ error: 'Abrechnung ist bereits geschlossen.' });
-  if (data.settlements.length) return res.status(409).json({ error: 'Es sind noch Zahlungen offen.' });
+  if (data.settlements.length && roleOf(req) !== 'admin')
+    return res.status(409).json({ error: 'Es sind noch Zahlungen offen.' });
   db.prepare("UPDATE tricounts SET closed_at = datetime('now') WHERE id = ?").run(req.params.id);
   res.json(loadTricount(req.params.id));
 });

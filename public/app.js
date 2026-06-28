@@ -109,6 +109,8 @@ const i18n = {
     tab_paypal: 'PayPal',
     copy_email: 'Kopieren',
     email_copied: 'E-Mail kopiert',
+    force_close_btn: 'Als Admin schließen',
+    force_close_confirm: 'Abrechnung schließen, obwohl noch Zahlungen offen sind?',
   },
   en: {
     loading_overview: 'Loading overview…',
@@ -208,6 +210,8 @@ const i18n = {
     tab_paypal: 'PayPal',
     copy_email: 'Copy',
     email_copied: 'Email copied',
+    force_close_btn: 'Close as admin',
+    force_close_confirm: 'Close bill even though payments are still open?',
   },
 };
 
@@ -678,6 +682,15 @@ function renderTricount(data, editingId = null) {
         } catch (e) { toast(e.message); }
       });
       setCard.appendChild(row);
+    }
+    if (ME.role === 'admin') {
+      const forceBtn = h(`<button class="btn-ghost" style="margin-top:8px;color:var(--muted);font-size:.82rem">${t('force_close_btn')}</button>`);
+      forceBtn.addEventListener('click', async () => {
+        if (!confirm(t('force_close_confirm'))) return;
+        try { renderTricount(await api('POST', `/api/tricounts/${data.id}/close`)); toast(t('bill_closed_toast')); }
+        catch (e) { toast(e.message); }
+      });
+      setCard.appendChild(forceBtn);
     }
   }
   tab2.appendChild(setCard);
