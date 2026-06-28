@@ -239,7 +239,7 @@ function settle(balances) {
 }
 
 function loadTricount(id) {
-  const tc = db.prepare('SELECT id, title, currency, created_at, closed_at FROM tricounts WHERE id = ?').get(id);
+  const tc = db.prepare('SELECT id, title, currency, created_at, closed_at, expenses_locked_at FROM tricounts WHERE id = ?').get(id);
   if (!tc) return null;
   const members = db.prepare('SELECT id, name, paypal_email FROM members WHERE tricount_id = ? ORDER BY created_at').all(id);
   const expenses = db.prepare(
@@ -275,12 +275,18 @@ function loadTricount(id) {
   return { ...tc, members, expenses, payments, balances, settlements: settle(balances) };
 }
 
-// Liefert die Abrechnung (id + closed_at) oder null – für Existenz-/Schreibschutz-Prüfung.
-const findTricount = (id) => db.prepare('SELECT id, closed_at FROM tricounts WHERE id = ?').get(id);
+// Liefert die Abrechnung (id + closed_at + expenses_locked_at) oder null.
+const findTricount = (id) => db.prepare('SELECT id, closed_at, expenses_locked_at FROM tricounts WHERE id = ?').get(id);
 // Antwortet mit einem Fehler, falls die Abrechnung fehlt oder geschlossen ist; sonst null.
 function blockIfMissingOrClosed(tc, res) {
   if (!tc) { res.status(404).json({ error: 'Abrechnung nicht gefunden.' }); return true; }
   if (tc.closed_at) { res.status(409).json({ error: 'Abrechnung ist geschlossen. Bitte zuerst wieder öffnen.' }); return true; }
+  return false;
+}
+// Antwortet mit einem Fehler, falls Ausgaben gesperrt oder Abrechnung geschlossen ist.
+function blockIfExpensesLocked(tc, res) {
+  if (blockIfMissingOrClosed(tc, res)) return true;
+  if (tc.expenses_locked_at) { res.status(409).json({ error: 'Ausgaben sind gesperrt.' }); return true; }
   return false;
 }
 
@@ -420,7 +426,7 @@ function parseExpenseInput(body, memberIds) {
 // Ausgabe hinzufügen
 app.post('/api/tricounts/:id/expenses', (req, res) => {
   const tc = findTricount(req.params.id);
-  if (blockIfMissingOrClosed(tc, res)) return;
+  if (blockIfExpensesLocked(tc, res)) return;
 
   const memberIds = db.prepare('SELECT id FROM members WHERE tricount_id = ?').all(tc.id).map((m) => m.id);
   const parsed = parseExpenseInput(req.body, memberIds);
@@ -444,7 +450,7 @@ app.post('/api/tricounts/:id/expenses', (req, res) => {
 // Ausgabe bearbeiten
 app.put('/api/tricounts/:id/expenses/:expenseId', (req, res) => {
   const tc = findTricount(req.params.id);
-  if (blockIfMissingOrClosed(tc, res)) return;
+  if (blockIfExpensesLocked(tc, res)) return;
 
   const existing = db.prepare('SELECT id FROM expenses WHERE id = ? AND tricount_id = ?')
     .get(req.params.expenseId, tc.id);
@@ -473,7 +479,7 @@ app.put('/api/tricounts/:id/expenses/:expenseId', (req, res) => {
 // Ausgabe löschen
 app.delete('/api/tricounts/:id/expenses/:expenseId', (req, res) => {
   const tc = findTricount(req.params.id);
-  if (blockIfMissingOrClosed(tc, res)) return;
+  if (blockIfExpensesLocked(tc, res)) return;
   const row = db.prepare('SELECT id FROM expenses WHERE id = ? AND tricount_id = ?')
     .get(req.params.expenseId, req.params.id);
   if (!row) return res.status(404).json({ error: 'Ausgabe nicht gefunden.' });
@@ -512,12 +518,29 @@ app.delete('/api/tricounts/:id/payments/:paymentId', (req, res) => {
   res.json(loadTricount(req.params.id));
 });
 
+// Ausgaben sperren / entsperren (nur Admin)
+app.post('/api/tricounts/:id/lock-expenses', requireAdmin, (req, res) => {
+  const tc = findTricount(req.params.id);
+  if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+  if (tc.closed_at) return res.status(409).json({ error: 'Abrechnung ist geschlossen.' });
+  db.prepare("UPDATE tricounts SET expenses_locked_at = datetime('now') WHERE id = ?").run(tc.id);
+  res.json(loadTricount(tc.id));
+});
+
+app.post('/api/tricounts/:id/unlock-expenses', requireAdmin, (req, res) => {
+  const tc = findTricount(req.params.id);
+  if (!tc) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
+  db.prepare('UPDATE tricounts SET expenses_locked_at = NULL WHERE id = ?').run(tc.id);
+  res.json(loadTricount(tc.id));
+});
+
 // Abrechnung abschließen (nur wenn alles ausgeglichen ist)
 app.post('/api/tricounts/:id/close', (req, res) => {
   const data = loadTricount(req.params.id);
   if (!data) return res.status(404).json({ error: 'Abrechnung nicht gefunden.' });
   if (data.closed_at) return res.status(409).json({ error: 'Abrechnung ist bereits geschlossen.' });
-  if (data.settlements.length) return res.status(409).json({ error: 'Es sind noch Zahlungen offen.' });
+  if (data.settlements.length && roleOf(req) !== 'admin')
+    return res.status(409).json({ error: 'Es sind noch Zahlungen offen.' });
   db.prepare("UPDATE tricounts SET closed_at = datetime('now') WHERE id = ?").run(req.params.id);
   res.json(loadTricount(req.params.id));
 });

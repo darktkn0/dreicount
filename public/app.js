@@ -109,6 +109,14 @@ const i18n = {
     tab_paypal: 'PayPal',
     copy_email: 'Kopieren',
     email_copied: 'E-Mail kopiert',
+    force_close_btn: 'Als Admin schließen',
+    force_close_confirm: 'Abrechnung schließen, obwohl noch Zahlungen offen sind?',
+    lock_expenses_btn: 'Ausgaben sperren',
+    unlock_expenses_btn: 'Ausgaben entsperren',
+    expenses_locked_info: 'Ausgaben gesperrt – keine Änderungen möglich.',
+    lock_expenses_confirm: 'Ausgaben sperren? Danach können keine Ausgaben mehr hinzugefügt oder bearbeitet werden.',
+    expenses_locked_toast: 'Ausgaben gesperrt',
+    expenses_unlocked_toast: 'Ausgaben freigegeben',
   },
   en: {
     loading_overview: 'Loading overview…',
@@ -208,6 +216,14 @@ const i18n = {
     tab_paypal: 'PayPal',
     copy_email: 'Copy',
     email_copied: 'Email copied',
+    force_close_btn: 'Close as admin',
+    force_close_confirm: 'Close bill even though payments are still open?',
+    lock_expenses_btn: 'Lock expenses',
+    unlock_expenses_btn: 'Unlock expenses',
+    expenses_locked_info: 'Expenses locked – no changes possible.',
+    lock_expenses_confirm: 'Lock expenses? No more expenses can be added or edited.',
+    expenses_locked_toast: 'Expenses locked',
+    expenses_unlocked_toast: 'Expenses unlocked',
   },
 };
 
@@ -445,6 +461,7 @@ function expenseFormCard(data, expense) {
 function renderTricount(data, editingId = null) {
   CURRENCY = data.currency || '€';
   const closed = !!data.closed_at;
+  const expensesLocked = !!data.expenses_locked_at;
   const name = (mid) => { const m = data.members.find((x) => x.id === mid); return m ? m.name : '?'; };
   app.innerHTML = '';
 
@@ -574,13 +591,34 @@ function renderTricount(data, editingId = null) {
   }
   tab3.appendChild(paypalCard);
 
-  if (!closed) {
+  if (!closed && !expensesLocked) {
     const editing = editingId ? data.expenses.find((e) => e.id === editingId) : null;
     tab1.appendChild(expenseFormCard(data, editing || null));
   }
 
   // Ausgabenliste
   const expCard = h(`<section class="card"><h2>${t('section_expenses')}</h2></section>`);
+
+  if (expensesLocked && !closed) {
+    const lockInfo = h(`<p class="settle-info" style="margin-bottom:8px">${t('expenses_locked_info')}</p>`);
+    expCard.appendChild(lockInfo);
+    if (ME.role === 'admin') {
+      const unlockBtn = h(`<button class="btn-ghost" style="font-size:.82rem;margin-bottom:12px">${t('unlock_expenses_btn')}</button>`);
+      unlockBtn.addEventListener('click', async () => {
+        try { renderTricount(await api('POST', `/api/tricounts/${data.id}/unlock-expenses`)); toast(t('expenses_unlocked_toast')); }
+        catch (e) { toast(e.message); }
+      });
+      expCard.appendChild(unlockBtn);
+    }
+  } else if (!closed && ME.role === 'admin') {
+    const lockBtn = h(`<button class="btn-ghost" style="font-size:.82rem;color:var(--muted);margin-bottom:12px">${t('lock_expenses_btn')}</button>`);
+    lockBtn.addEventListener('click', async () => {
+      if (!confirm(t('lock_expenses_confirm'))) return;
+      try { renderTricount(await api('POST', `/api/tricounts/${data.id}/lock-expenses`)); toast(t('expenses_locked_toast')); }
+      catch (e) { toast(e.message); }
+    });
+    expCard.appendChild(lockBtn);
+  }
   if (!data.expenses.length) expCard.appendChild(h(`<p class="empty">${t('no_expenses')}</p>`));
   else for (const e of data.expenses) {
     const isEditing = e.id === editingId;
@@ -591,10 +629,10 @@ function renderTricount(data, editingId = null) {
           <div class="exp-meta">${t('exp_meta', esc(name(e.paid_by)), esc(e.spent_on), e.shares.length)}</div>
         </div>
         <div class="exp-amt">${fmt(e.amount_cents)}</div>
-        ${closed ? '' : `<button class="exp-edit" title="${t('edit_tooltip')}">✎</button><button class="exp-del" title="${t('delete_tooltip')}">×</button>`}
+        ${(closed || expensesLocked) ? '' : `<button class="exp-edit" title="${t('edit_tooltip')}">✎</button><button class="exp-del" title="${t('delete_tooltip')}">×</button>`}
       </div>
     `);
-    if (!closed) {
+    if (!closed && !expensesLocked) {
       row.querySelector('.exp-edit').addEventListener('click', () => {
         renderTricount(data, isEditing ? null : e.id);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -678,6 +716,15 @@ function renderTricount(data, editingId = null) {
         } catch (e) { toast(e.message); }
       });
       setCard.appendChild(row);
+    }
+    if (ME.role === 'admin') {
+      const forceBtn = h(`<button class="btn-ghost" style="margin-top:8px;color:var(--muted);font-size:.82rem">${t('force_close_btn')}</button>`);
+      forceBtn.addEventListener('click', async () => {
+        if (!confirm(t('force_close_confirm'))) return;
+        try { renderTricount(await api('POST', `/api/tricounts/${data.id}/close`)); toast(t('bill_closed_toast')); }
+        catch (e) { toast(e.message); }
+      });
+      setCard.appendChild(forceBtn);
     }
   }
   tab2.appendChild(setCard);
