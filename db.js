@@ -75,6 +75,12 @@ if (!tricountCols.includes('closed_at')) {
   db.exec('ALTER TABLE tricounts ADD COLUMN closed_at TEXT');
 }
 
+// Migration: Ausgaben-Sperre je Abrechnung.
+const tricountCols2 = db.prepare('PRAGMA table_info(tricounts)').all().map((c) => c.name);
+if (!tricountCols2.includes('expenses_locked_at')) {
+  db.exec('ALTER TABLE tricounts ADD COLUMN expenses_locked_at TEXT');
+}
+
 // Migration: PayPal-E-Mail je Mitglied.
 const memberCols = db.prepare('PRAGMA table_info(members)').all().map((c) => c.name);
 if (!memberCols.includes('paypal_email')) {
